@@ -60,9 +60,13 @@ def get_model(
     if device is None:
         raise TypeError("device is not to be None")
 
+    # --- 💡 수정된 부분: 증강 모드에 따라 입력 채널 수를 동적으로 결정 ---
+    in_channels = 2 if config.augmentation_mode in ['conv_only', 'both'] else 1
+    logger.info(f"Setting model input channels to {in_channels} based on augmentation mode '{config.augmentation_mode}'.")
+
     if ModelType.from_string(model_type) == ModelType.DnCNN:
         return DnCNN(
-            channels=dncnnconfig.channels,
+            channels=in_channels,
             num_of_layers=dncnnconfig.num_of_layers,
             kernel_size=dncnnconfig.kernel_size,
             padding=dncnnconfig.padding,
@@ -70,7 +74,7 @@ def get_model(
         )
     elif ModelType.from_string(model_type) == ModelType.Unet:
         return Unet(
-            in_chans=unetconfig.in_chans,
+            in_chans=in_channels,
             out_chans=unetconfig.out_chans,
             chans=unetconfig.chans,
             num_pool_layers=unetconfig.num_pool_layers,
