@@ -223,41 +223,52 @@ class ControlledDataWrapper(BaseDataWrapper):
         file_idx = index // self.num_augmentations
         aug_idx = index % self.num_augmentations
 
-        image_gt_np = self._load_from_npy(self.file_list[file_idx])
+        image_np = self._load_from_npy(self.file_list[file_idx])
         _name = Path(self.file_list[file_idx]).name
 
-        # Convert to tensor
-        image_gt_tensor = torch.from_numpy(image_gt_np).unsqueeze(0).float()
-
+        # In training mode, we load a clean GT and create a noisy version
         if self.training_mode:
-            image_gt_np = self._augment(image_gt_np)
+            image_gt_np = self._augment(image_np)
 
-        # Convert NumPy array to a 4D Torch Tensor for simulators
-        image_noise_tensor = torch.from_numpy(image_gt_np.copy()).unsqueeze(0).unsqueeze(0)
+            # Convert NumPy array to a 4D Torch Tensor for simulators
+            image_gt_tensor = torch.from_numpy(image_gt_np.copy()).unsqueeze(0).unsqueeze(0)
+            image_noise_tensor = image_gt_tensor.clone()
+            
+            # Apply on-the-fly degradation
+            if self.augmentation_mode == 'noise_only':
+                if len(self.noise_levels) > 0:
+                    noise_level = self.noise_levels[(self.current_epoch + index) % len(self.noise_levels)]
+                    self.noise_simulator.noise_sigma = noise_level
+                    image_noise_tensor = self.noise_simulator(image_noise_tensor)
+            elif self.augmentation_mode == 'conv_only':
+                if len(self.conv_directions) > 0:
+                    conv_direction = self.conv_directions[(self.current_epoch + index) % len(self.conv_directions)]
+                    image_noise_tensor = self.forward_simulator(image_noise_tensor, conv_direction)
+            elif self.augmentation_mode == 'both':
+                if self.total_combinations > 0:
+                    combination_idx = (self.current_epoch + index) % self.total_combinations
+                    noise_level, conv_direction = self.noise_conv_combinations[combination_idx]
+                    
+                    image_noise_tensor = self.forward_simulator(image_noise_tensor, conv_direction)
+                    self.noise_simulator.noise_sigma = noise_level
+                    image_noise_tensor = self.noise_simulator(image_noise_tensor)
 
-        if self.augmentation_mode == 'noise_only':
-            if len(self.noise_levels) > 0:
-                noise_level = self.noise_levels[(self.current_epoch + index) % len(self.noise_levels)]
-                self.noise_simulator.noise_sigma = noise_level
-                image_noise_tensor = self.noise_simulator(image_noise_tensor)
-        elif self.augmentation_mode == 'conv_only':
-            if len(self.conv_directions) > 0:
-                conv_direction = self.conv_directions[(self.current_epoch + index) % len(self.conv_directions)]
-                image_noise_tensor = self.forward_simulator(image_noise_tensor, conv_direction)
-        elif self.augmentation_mode == 'both':
-            if self.total_combinations > 0:
-                combination_idx = (self.current_epoch + index) % self.total_combinations
-                noise_level, conv_direction = self.noise_conv_combinations[combination_idx]
-                
-                image_noise_tensor = self.forward_simulator(image_noise_tensor, conv_direction)
-                self.noise_simulator.noise_sigma = noise_level
-                image_noise_tensor = self.noise_simulator(image_noise_tensor)
-
-        return {
-            DataKey.image_gt: image_gt_tensor,
-            DataKey.image_noise: image_noise_tensor.squeeze(0),
-            DataKey.name: _name,
-        }
+            return {
+                # Return the original clean image as GT
+                DataKey.image_gt: torch.from_numpy(image_np).unsqueeze(0).float(),
+                DataKey.image_noise: image_noise_tensor.squeeze(0).squeeze(0),
+                DataKey.name: _name,
+            }
+        # In evaluation mode, the loaded image is already the noisy input
+        else:
+            image_noise_tensor = torch.from_numpy(image_np).unsqueeze(0).float()
+            return {
+                # In a real test set, we might not have the GT. 
+                # We can return the noisy image as a placeholder for GT.
+                DataKey.image_gt: image_noise_tensor,
+                DataKey.image_noise: image_noise_tensor,
+                DataKey.name: _name,
+            }
 
 
 def get_data_wrapper_loader(
