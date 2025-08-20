@@ -237,7 +237,14 @@
     # (2) 학습셋의 100, 200번째 이미지의 전체 복원 과정을 sbs_unet 모델로 비교
     python VISUALIZATION/create_visuals.py \
         --vis_type full_process \
-        --checkpoint VISUALIZATION/checkpoints/sbs_unet_best.ckpt \
+        --checkpoint VISUALIZATION/checkpoints/e2e_unet_best.ckpt \
         --data_path dataset/train \
         --indices 100 200
+
+    # (3) SBS 파이프라인으로 학습셋의 50번째 이미지 전체 복원 과정 비교
+    python VISUALIZATION/create_visuals.py \
+        --vis_type full_process \
+        --sbs_checkpoints VISUALIZATION/checkpoints/sbs_dncnn_best.ckpt VISUALIZATION/checkpoints/sbs_unet_best.ckpt \
+        --data_path dataset/train \
+        --indices 50
     ```

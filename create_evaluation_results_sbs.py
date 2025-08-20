@@ -22,8 +22,8 @@ import numpy as np
 
 # 프로젝트 루트를 기준으로 필요한 모듈 import
 from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loader, LoaderConfig
-from code_denoising.core_funcs import get_model
-from params import config
+from code_denoising.core_funcs import get_model, ModelType
+from params import config, dncnnconfig, unetconfig
 from code_denoising.common.logger import logger
 
 warnings.filterwarnings("ignore")
@@ -81,6 +81,15 @@ def main():
     
     config.model_type = denoising_checkpoint.get("model_type", "dncnn")
     logger.info(f"Loading Denoising model type: {config.model_type}")
+
+    # --- 💡 수정: DnCNN 모델 설정을 config에 할당 ---
+    if ModelType.from_string(config.model_type) == ModelType.DnCNN:
+        config.model_config = dncnnconfig
+    else:
+        # SBS의 첫 단계는 DnCNN이어야 하므로, 다른 모델 타입이 오면 경고
+        logger.warning(f"Expected DnCNN for denoising, but got {config.model_type}. Using default DnCNN config.")
+        config.model_config = dncnnconfig
+        
     denoising_network = get_model(config).to(config.device)
     
     denoising_state_dict = denoising_checkpoint['model_state_dict']
@@ -99,6 +108,20 @@ def main():
 
     config.model_type = deconv_checkpoint.get("model_type", "unet")
     logger.info(f"Loading Deconvolution model type: {config.model_type}")
+
+    # --- 💡 수정: Unet 모델 설정을 config에 할당 ---
+    if ModelType.from_string(config.model_type) == ModelType.Unet:
+        config.model_config = unetconfig
+        # Deconvolution 모델은 항상 2채널 입출력을 가짐
+        config.model_config.in_chans = 2
+        config.model_config.out_chans = 2
+    else:
+        # SBS의 두 번째 단계는 Unet이어야 하므로, 다른 모델 타입이 오면 경고
+        logger.warning(f"Expected Unet for deconvolution, but got {config.model_type}. Using default Unet config.")
+        config.model_config = unetconfig
+        config.model_config.in_chans = 2
+        config.model_config.out_chans = 2
+
     deconv_network = get_model(config).to(config.device)
 
     deconv_state_dict = deconv_checkpoint['model_state_dict']
