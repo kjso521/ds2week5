@@ -64,6 +64,9 @@ def get_model(config: "GeneralConfig") -> NETWORK:
         return DnCNN(
             channels=model_cfg.channels,
             num_of_layers=model_cfg.num_of_layers,
+            kernel_size=model_cfg.kernel_size,
+            padding=model_cfg.padding,
+            features=model_cfg.features,
         )
 
     elif ModelType.from_string(model_type) == ModelType.Unet:

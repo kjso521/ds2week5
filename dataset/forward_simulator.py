@@ -51,9 +51,8 @@ class ForwardSimulator:
         # .real 대신 실수부와 허수부를 채널로 쌓아 반환
         img_dipole = torch.stack([img_dipole_complex.real, img_dipole_complex.imag], dim=-3)
 
-        if img_dim == 3:
-            pass # 이미 채널 차원이 있으므로 추가 작업 불필요
-        elif img_dim == 2:
-            img_dipole = img_dipole.squeeze(0) # 배치 차원 제거
+        # 입력 차원에 관계없이 항상 [C, H, W] 형태의 3D 텐서를 반환하도록 보장
+        if img_dipole.dim() > 3:
+            img_dipole = img_dipole.squeeze(0)
 
         return img_dipole
