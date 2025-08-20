@@ -113,9 +113,6 @@ def parse_args_for_train_script():
             elif f.type is not torch.device:
                 parser.add_argument(f"--{f.name}", type=f.type, default=default_val)
 
-    parser.add_argument("--augmentation_mode", type=str, default="both", help="Augmentation mode: none, noise_only, conv_only, both")
-    parser.add_argument("--training_phase", type=str, default="end_to_end", help="Training phase: denoising, deconvolution, end_to_end")
-
     args = parser.parse_args()
 
     update_config_from_args(config, args)
