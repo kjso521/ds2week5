@@ -183,3 +183,23 @@
     - U-Net Deconvolution 모델 학습이 재개되었으며, 초기 Epoch에서 **SSIM이 음수로 출력되는 현상**이 관찰되었습니다. 원인 분석이 필요합니다.
 - **`트랙 2` (알고리즘 기반 모델):**
     - PnP 하이퍼파라미터 튜닝이 진행 중입니다. `run_diffusion_tests.ipynb`를 통해 최적의 `rho` 및 `noise_level`을 찾고 있습니다.
+
+## 13. 디버깅 회고 및 주요 수정사항
+
+본 프로젝트는 `step-by-step deconvolution` 학습 과정에서 심각하고 반복적인 `RuntimeError: channel mismatch` 및 `AttributeError`를 겪었습니다. 수많은 시행착오 끝에 다음과 같은 핵심 원인들을 발견하고 해결하였으며, 이 과정을 기록하여 향후 유사한 실수를 방지하고자 합니다.
+
+- **`ForwardSimulator`의 채널 생성 오류 (가장 근본적인 원인)**:
+    - **문제점**: `dataset/forward_simulator.py`가 컨볼루션 시뮬레이션 후, 복소수 결과에서 `.real`을 사용하여 실수부만 반환했습니다. 이로 인해 2채널이 필요한 `deconvolution` 모델이 1채널 데이터를 받아 `channel mismatch` 오류가 발생했습니다.
+    - **해결책**: `.real`을 제거하고, `torch.stack`을 사용하여 결과의 실수부와 허수부를 새로운 채널 차원으로 쌓아, 항상 `[2, H, W]` 형태의 2채널 텐서를 반환하도록 수정했습니다.
+
+- **`get_model` 함수의 모델별 호환성 부족**:
+    - **문제점**: `Unet`은 입력 채널 속성으로 `in_chans`를, `DnCNN`은 `channels`를 사용합니다. `get_model` 함수가 `in_chans`만 사용하도록 고정되어 있어 `DnCNN` 평가 시 `AttributeError`가 발생했습니다.
+    - **해결책**: `get_model` 함수 내부에 모델 타입(`Unet`, `DnCNN`)에 따라 각각 올바른 속성(`in_chans`, `channels`)을 참조하도록 분기 처리 로직을 추가하여 호환성을 확보했습니다.
+
+- **평가 스크립트의 잘못된 채널 해석**:
+    - **문제점**: `e2e` 모델(1채널) 체크포인트를 평가할 때, 평가 스크립트가 `sbs deconvolution` 기준으로 2채널 모델을 생성하여 `size mismatch` 오류가 발생했습니다.
+    - **해결책**: 평가 시에는 데이터 증강이 불필요하므로, `create_evaluation_results.py`에서 모델을 생성하기 전에 `config.augmentation_mode = 'none'`으로 강제 설정하는 안전장치를 추가했습니다. 이로써 평가 시에는 항상 1채널 모델이 생성되어 `e2e` 모델과 호환됩니다.
+
+- **`Trainer` 클래스의 초기화 로직 파괴 및 복구**:
+    - **문제점**: 반복적인 리팩토링 과정에서 `Trainer` 클래스의 `__init__` 함수에서 `optimizer`, `SummaryWriter` 등 필수 속성을 초기화하는 로직이 누락되거나, `run` 메소드가 삭제되는 등 클래스의 기본 구조가 파괴되어 수많은 `AttributeError`가 발생했습니다.
+    - **해결책**: `git` 기록과 논리적 분석을 통해, `__init__` 함수가 `_init_essential` 헬퍼 함수를 호출하여 `model`, `optimizer`, `loss`, `writer` 등을 모두 순서대로 초기화하는 원래의 안정적인 구조로 완벽하게 복구했습니다.

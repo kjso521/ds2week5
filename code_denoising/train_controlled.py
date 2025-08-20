@@ -58,6 +58,8 @@ class Trainer:
 
         self.run_dir = Path(self.config.run_dir) / f"{call_next_id(Path(self.config.run_dir)):05d}_{self.config.tag or 'train'}"
         self.save_dir = self.run_dir / "checkpoints"
+        self.log_file = self.run_dir / "training.log"
+        self.writer = SummaryWriter(log_dir=str(self.run_dir))
         
         self.run_dir.mkdir(parents=True, exist_ok=True)
         self.save_dir.mkdir(parents=True, exist_ok=True)
