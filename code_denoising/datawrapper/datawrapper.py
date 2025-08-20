@@ -50,6 +50,14 @@ class BaseDataWrapper(Dataset):
             logger.error(f"Error loading npy file at {npy_path}: {e}")
             return np.array([]) # Return empty array on failure
 
+    def _augment(self, img: np.ndarray) -> np.ndarray:
+        """Applies random flips for data augmentation."""
+        if random.random() < prob_flip:
+            img = np.fliplr(img)
+        if random.random() < prob_flip:
+            img = np.flipud(img)
+        return img.copy()
+
     def __getitem__(self, index):
         raise NotImplementedError("Each child class must implement its own __getitem__ method.")
 
