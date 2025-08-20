@@ -252,9 +252,10 @@ class ControlledDataWrapper(BaseDataWrapper):
                 combination_idx = (self.current_epoch + index) % self.total_combinations
                 noise_level, conv_direction = self.noise_conv_combinations[combination_idx]
                 
-                # forward_simulator가 먼저 [2, H, W]를 만들고, 이를 다시 4D로 변환하여 noise_simulator에 전달
+                # forward_simulator가 먼저 [2, H, W]를 만들고, 
                 conv_output_3d = self.forward_simulator(image_noise_tensor_4d, conv_direction)
-                conv_output_4d = conv_output_3d.unsqueeze(0) # Shape: [1, 2, H, W]
+                # --- 💡 수정된 부분: 이를 다시 4D로 변환하여 noise_simulator에 전달 ---
+                conv_output_4d = conv_output_3d.unsqueeze(0) 
 
                 self.noise_simulator.noise_sigma = noise_level
                 # noise_simulator는 [1, 2, H, W]를 반환하므로, squeeze(0)만 적용
