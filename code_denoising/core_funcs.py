@@ -56,11 +56,12 @@ def get_model(config: "GeneralConfig") -> NETWORK:
     Returns the model specified in the config.
     """
     model_type = config.model_type
+    model_cfg = config.model_config  # 💡 수정: 일반화된 model_config 속성 사용
+
     in_channels = 2 if config.augmentation_mode in ['conv_only', 'both'] else 1
     logger.info(f"Setting model input channels to {in_channels} based on augmentation mode '{config.augmentation_mode}'.")
 
     if ModelType.from_string(model_type) == ModelType.DnCNN:
-        model_cfg = config.dncnn_config
         assert isinstance(model_cfg, DnCNNConfig)
         return DnCNN(
             channels=in_channels,
@@ -68,7 +69,6 @@ def get_model(config: "GeneralConfig") -> NETWORK:
         )
 
     elif ModelType.from_string(model_type) == ModelType.Unet:
-        model_cfg = config.unet_config
         assert isinstance(model_cfg, UnetConfig)
         return Unet(
             in_chans=in_channels,
