@@ -235,7 +235,7 @@ class Trainer:
                         logger.info(f"Early stop at epoch {epoch}")
                         break
                 # Save checkpoint every validation interval regardless of performance
-                # self._save_checkpoint(f"checkpoint_epoch_{epoch}.ckpt")
+                self._save_checkpoint(f"checkpoint_epoch_{epoch}.ckpt")
 
     @error_wrap
     def _test(self, mode: str) -> None:
