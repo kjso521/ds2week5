@@ -56,7 +56,8 @@ class Trainer:
 
         if self.config.augmentation_mode in ['conv_only', 'both']:
             self.config.model_config.in_chans = 2
-            logger.info("Setting model input channels to 2 for deconvolution.")
+            self.config.model_config.out_chans = 2 # Deconvolution requires 2-channel output (real/imaginary)
+            logger.info("Setting model input and output channels to 2 for deconvolution.")
 
         self.run_dir = Path(self.config.run_dir) / f"{call_next_id(Path(self.config.run_dir)):05d}_{self.config.tag or 'train'}"
         self.save_dir = self.run_dir / "checkpoints"
