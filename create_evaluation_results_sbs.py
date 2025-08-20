@@ -132,20 +132,24 @@ def main():
     deconv_network.eval()
 
     # --- 데이터 로더 설정 ---
-    loader_cfg = LoaderConfig(
-        data_type=config.data_type,
-        batch=8,
-        num_workers=0,
-        shuffle=False,
-        augmentation_mode='none',
-        noise_type=config.noise_type,
-        noise_levels=config.noise_levels,
-        conv_directions=config.conv_directions
-    )
+    # 💡 수정: LoaderConfig 클래스 생성 대신 TypedDict(딕셔너리)를 사용
+    loader_cfg: LoaderConfig = {
+        "data_type": config.data_type,
+        "batch": 8,
+        "num_workers": 0,
+        "shuffle": False,
+        "augmentation_mode": 'none',
+        "training_phase": 'end_to_end', # ControlledDataWrapper에 필요
+        "noise_type": config.noise_type,
+        "noise_levels": config.noise_levels,
+        "conv_directions": config.conv_directions
+    }
+    # 💡 수정: loader_cfg를 키워드 인자로 풀어서 전달하고, 'controlled' 클래스 명시
     data_loader, _ = get_data_wrapper_loader(
         file_path=[args.data_root],
-        loader_cfg=loader_cfg,
         training_mode=False,
+        data_wrapper_class='controlled',
+        **loader_cfg
     )
 
     if not data_loader:
