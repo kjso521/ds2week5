@@ -35,10 +35,7 @@ from code_denoising.common.utils import call_next_id, separator
 from code_denoising.common.logger import logger, logger_add_handler
 from code_denoising.common.wrapper import error_wrap
 from params import config, dncnnconfig, unetconfig, parse_args_for_train_script
-from code_denoising.core_funcs.model_type import ModelType
-from code_denoising.core_funcs.network import NETWORK
-from code_denoising.core_funcs.optimizer import OPTIMIZER
-from code_denoising.core_funcs.loss import LOSS
+from code_denoising.model.model_type import ModelType
 
 warnings.filterwarnings("ignore")
 
@@ -69,10 +66,10 @@ class Trainer:
         self._logging_config(self.config)
 
         self.epoch = 0
-        self.model: NETWORK
-        self.optimizer: OPTIMIZER
+        self.model: torch.nn.Module
+        self.optimizer: torch.optim.Optimizer
         self.scheduler: ReduceLROnPlateau
-        self.loss_model: LOSS
+        self.loss_model: torch.nn.Module
         self.best_psnr = 0.0
         self.best_epoch = 0
         self.early_stop_tol = self.config.valid_tol
