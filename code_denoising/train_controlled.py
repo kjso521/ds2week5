@@ -8,6 +8,7 @@
 
 import os
 import sys
+import dataclasses
 from pathlib import Path
 
 # --- 중요: 모든 import 이전에 프로젝트 루트 경로를 시스템 경로에 추가 ---
@@ -98,26 +99,24 @@ class Trainer:
             noise_levels=config.noise_levels,
             conv_directions=config.conv_directions
         )
-        # Pass a copy of the config as a dictionary to prevent mutation
         self.train_loader, self.train_dataset_obj = get_data_wrapper_loader(
             file_path=config.train_dataset,
-            loader_cfg=loader_cfg.__dict__.copy(),
+            loader_cfg=dataclasses.asdict(loader_cfg),
             training_mode=True,
             data_wrapper_class='controlled'
         )
         logger.info(f"Train dataset length : {len(self.train_dataset_obj)}")
 
-        # Now, modify the original LoaderConfig object for the validation set
-        loader_cfg.batch = config.valid_batch
-        loader_cfg.shuffle = False
-        # Pass a copy for validation as well
+        # Create a new, separate config for the validation set to ensure immutability
+        valid_loader_cfg = dataclasses.replace(loader_cfg, batch=config.valid_batch, shuffle=False)
+        
         self.valid_loader, self.valid_dataset_obj = get_data_wrapper_loader(
             file_path=config.valid_dataset,
-            loader_cfg=loader_cfg.__dict__.copy(),
-            training_mode=True, # Augmentation is still controlled by mode, not just training_mode
+            loader_cfg=dataclasses.asdict(valid_loader_cfg),
+            training_mode=True, # Augmentation is controlled by mode, not just training_mode
             data_wrapper_class='controlled'
         )
-        logger.info(f"Valid dataset length : {len(self.valid_loader.dataset)}")
+        logger.info(f"Valid dataset length : {len(self.valid_dataset_obj)}")
 
         self.test_loader, _ = get_data_wrapper_loader(
             file_path=config.test_dataset,
