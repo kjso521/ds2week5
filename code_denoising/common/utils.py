@@ -65,8 +65,23 @@ def get_config_from_json(json_file: str) -> dict:
 
 def save_numpy_as_image(array: np.ndarray, file_name: str) -> None:
     """
-    Saves a numpy array as a grayscale image, handling tensor-specific formats.
+    Saves a numpy array as a grayscale image, handling 2-channel complex data by converting it to magnitude.
     """
+    # If the input is a 2-channel complex image, calculate its magnitude.
+    # Assumes shape is [B, C, H, W] or [C, H, W]
+    num_dims = array.ndim
+    if num_dims >= 3 and array.shape[-3] == 2:
+        # Assuming channel is the third dimension from the end (e.g., C in NCHW or CHW)
+        # array shape can be (N, 2, H, W) or (2, H, W)
+        real_part = array[..., 0, :, :]
+        imag_part = array[..., 1, :, :]
+        array = np.sqrt(real_part**2 + imag_part**2)
+        # Add channel dimension back for grayscale
+        if array.ndim == 2: # was (2, H, W) -> (H, W)
+             array = array[np.newaxis, :] # (1, H, W)
+        else: # was (N, 2, H, W) -> (N, H, W)
+             array = array[:, np.newaxis, :, :] # (N, 1, H, W)
+
     # Squeeze singleton dimensions for batch and channels (e.g., [1, 1, H, W] -> [H, W])
     array_2d = np.squeeze(array)
     
