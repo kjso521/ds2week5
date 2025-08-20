@@ -82,6 +82,10 @@ def parse_args_for_train_script() -> None:
     parser.add_argument("--run_dir", type=str, help="Directory to save logs and models.")
     parser.add_argument("--tag", type=str, help="A tag for the training run.")
     parser.add_argument("--data_root", type=str, help="Root directory for the dataset.")
+    # --- 💡 수정된 부분: Step-by-Step 학습을 위한 인자 추가 ---
+    parser.add_argument("--augmentation_mode", type=str, choices=["noise_only", "conv_only", "both", "none"], help="Type of data augmentation to apply.")
+    parser.add_argument("--training_phase", type=str, help="Phase of the training, e.g., 'denoising', 'deconvolution'.")
+
 
     args = parser.parse_args()
 
@@ -93,6 +97,11 @@ def parse_args_for_train_script() -> None:
         config.tag = args.tag
     if args.data_root:
         config.DATA_ROOT = args.data_root
+    # --- 💡 수정된 부분: 새로운 인자들을 config에 반영 ---
+    if args.augmentation_mode:
+        config.augmentation_mode = args.augmentation_mode
+    if args.training_phase:
+        config.training_phase = args.training_phase
     
     # Automatically generate tag if not provided
     if config.tag is None:
