@@ -189,15 +189,16 @@ class ControlledDataWrapper(BaseDataWrapper):
 
         # Augmentation settings
         self.num_augmentations = 1
-        if self.training_mode and self.augmentation_mode in ['noise', 'both']:
+        # --- 💡 수정된 부분: 모든 증강 모드를 올바르게 처리하도록 로직 변경 ---
+        if self.training_mode:
             num_noise = len(noise_levels) if noise_levels else 1
             num_conv = len(conv_directions) if conv_directions else 1
-            
-            if augmentation_mode == 'both':
+
+            if self.augmentation_mode == 'both':
                 self.num_augmentations = num_noise * num_conv
-            elif augmentation_mode == 'noise_only':
+            elif self.augmentation_mode == 'noise_only':
                 self.num_augmentations = num_noise
-            elif augmentation_mode == 'conv_only':
+            elif self.augmentation_mode == 'conv_only':
                 self.num_augmentations = num_conv
 
         # Store noise/conv parameters needed for __getitem__
@@ -256,7 +257,8 @@ class ControlledDataWrapper(BaseDataWrapper):
             return {
                 # Return the original clean image as GT
                 DataKey.image_gt: torch.from_numpy(image_np).unsqueeze(0).float(),
-                DataKey.image_noise: image_noise_tensor.squeeze(0).squeeze(0),
+                # --- 💡 수정된 부분: squeeze를 한 번만 사용하여 채널 차원 보존 ---
+                DataKey.image_noise: image_noise_tensor.squeeze(0),
                 DataKey.name: _name,
             }
         # In evaluation mode, the loaded image is already the noisy input
