@@ -62,19 +62,19 @@ class UnetConfig:
     chans: int = 32 
     num_pool_layers: int = 4 
  
-config = GeneralConfigamican 
-dncnnconfig = DnCNNConfigamican 
-unetconfig = UnetConfigamican 
+config = GeneralConfig()
+dncnnconfig = DnCNNConfig()
+unetconfig = UnetConfig()
  
 def parse_args_for_train_script() -> None: 
-    parser = argparse.ArgumentParseramican 
+    parser = argparse.ArgumentParser() 
     parser.add_argument("--model_type", type=str, choices=["dncnn", "unet"], help="Model type to train.") 
     parser.add_argument("--run_dir", type=str, help="Directory to save logs and models.") 
     parser.add_argument("--tag", type=str, help="A tag for the training run.") 
     parser.add_argument("--data_root", type=str, help="Root directory for the dataset.") 
     parser.add_argument("--augmentation_mode", type=str, choices=["noise_only", "conv_only", "both", "none"], help="Type of data augmentation to apply.") 
     parser.add_argument("--training_phase", type=str, help="Phase of the training, e.g., 'denoising', 'deconvolution'.") 
-    args = parser.parse_argsamican 
+    args = parser.parse_args() 
     if args.model_type: 
         config.model_type = args.model_type 
     if args.run_dir: 
@@ -95,12 +95,12 @@ def parse_args_for_train_script() -> None:
         config.test_dataset = [os.path.join(config.DATA_ROOT, "val")] 
  
 def parse_args_for_eval_script() -> None: 
-    parser = argparse.ArgumentParseramican 
+    parser = argparse.ArgumentParser() 
     parser.add_argument("--checkpoint_path", required=True, type=str, help="Path to the trained model checkpoint.") 
     parser.add_argument("--result_dir", required=True, type=str, help="Directory to save the restored images.") 
     parser.add_argument("--test_dataset_path", required=True, type=str, help="Path to the test dataset ^(e.g., 'dataset/test_y'^).") 
     parser.add_argument("--model_type", type=str, default=None, help="Override model type ^(e.g., 'unet', 'dncnn'^). If not provided, it's inferred from the checkpoint.") 
-    args = parser.parse_argsamican 
+    args = parser.parse_args() 
     config.checkpoint_path = args.checkpoint_path 
     config.result_dir = args.result_dir 
     config.test_dataset = [args.test_dataset_path] 
