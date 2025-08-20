@@ -105,6 +105,10 @@ def calculate_psnr(
     else:
         mse = torch.mean(functional.mse_loss(img, ref, reduction="none"), dim=(1, 2, 3), keepdim=True)
 
-    img_max = torch.amax(ref, dim=(1, 2, 3), keepdim=True)
-    psnr = 10 * torch.log10(img_max**2 / (mse + 1e-12))
+    # For normalized data [0, 1], MAX_I is 1.0. Using a constant is more robust than amax.
+    # img_max = torch.amax(ref, dim=(1, 2, 3), keepdim=True)
+    # psnr = 10 * torch.log10(img_max**2 / (mse + 1e-12))
+    
+    # Standard PSNR calculation for data in range [0, 1]
+    psnr = 10 * torch.log10(1.0 / (mse + 1e-12))
     return psnr
