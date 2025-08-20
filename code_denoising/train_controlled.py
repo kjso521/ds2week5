@@ -35,6 +35,7 @@ from code_denoising.common.utils import call_next_id, separator
 from code_denoising.common.logger import logger, logger_add_handler
 from code_denoising.common.wrapper import error_wrap
 from params import config, dncnnconfig, unetconfig, parse_args_for_train_script
+from code_denoising.common.metric import calculate_psnr
 
 
 warnings.filterwarnings("ignore")
@@ -236,7 +237,7 @@ class Trainer:
                 image_gt = data[DataKey.image_gt].to(self.device)
                 image_noise = data[DataKey.image_noise].to(self.device)
                 image_pred = self.model(image_noise)
-                psnr = self.loss_model.psnr(image_pred, image_gt)
+                psnr = calculate_psnr(image_pred, image_gt)
                 total_psnr += psnr
                 if self.config.save_val and i < self.config.save_max_idx:
                     self._save_image(
