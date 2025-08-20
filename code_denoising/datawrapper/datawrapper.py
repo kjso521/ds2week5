@@ -144,36 +144,41 @@ class RandomDataWrapper(Dataset):
         }
 
 class ControlledDataWrapper(Dataset):
-    def __init__(self, file_path: list, loader_cfg: LoaderConfig, training_mode: bool):
+    def __init__(self, file_path: list, training_mode: bool, data_type: str, 
+                 augmentation_mode: str, noise_type: str, noise_levels: list, 
+                 conv_directions: list, **kwargs):
         super().__init__()
-        self.loader_cfg = loader_cfg
         self.training_mode = training_mode
 
         # Find all files matching the pattern
         self.file_list = []
         for path in file_path:
-            self.file_list.extend(glob.glob(os.path.join(path, self.loader_cfg.data_type)))
+            self.file_list.extend(glob.glob(os.path.join(path, data_type)))
 
         if not self.file_list:
-            logger.error(f"No files found for pattern {self.loader_cfg.data_type} in paths {file_path}")
-            # Raising an error is better than letting it fail later
+            logger.error(f"No files found for pattern {data_type} in paths {file_path}")
             raise FileNotFoundError(f"No data files found in {file_path}")
 
         # Augmentation settings
         self.num_augmentations = 1
-        if self.training_mode and self.loader_cfg.augmentation_mode in ['noise', 'both']:
-            num_noise = len(self.loader_cfg["noise_levels"]) if self.loader_cfg["noise_levels"] else 1
-            num_conv = len(self.loader_cfg["conv_directions"]) if self.loader_cfg["conv_directions"] else 1
+        if self.training_mode and augmentation_mode in ['noise', 'both']:
+            num_noise = len(noise_levels) if noise_levels else 1
+            num_conv = len(conv_directions) if conv_directions else 1
             
-            if self.loader_cfg.augmentation_mode == 'both':
+            if augmentation_mode == 'both':
                 self.num_augmentations = num_noise * num_conv
-            elif self.loader_cfg.augmentation_mode == 'noise_only':
+            elif augmentation_mode == 'noise_only':
                 self.num_augmentations = num_noise
-            elif self.loader_cfg.augmentation_mode == 'conv_only':
+            elif augmentation_mode == 'conv_only':
                 self.num_augmentations = num_conv
 
-        # 시뮬레이터들을 미리 초기화해둡니다.
-        self.noise_simulator = NoiseSimulator(noise_type=NoisyType.from_string(self.loader_cfg["noise_type"]), noise_sigma=0.0) # sigma는 __getitem__에서 매번 덮어씀
+        # Store noise/conv parameters needed for __getitem__
+        self.noise_levels = noise_levels
+        self.conv_directions = conv_directions
+        self.noise_conv_combinations = list(itertools.product(self.noise_levels, self.conv_directions))
+
+        # Initialize simulators
+        self.noise_simulator = NoiseSimulator(noise_type=NoisyType.from_string(noise_type), noise_sigma=0.0)
         self.forward_simulator = ForwardSimulator()
 
     def set_epoch(self, epoch: int):
