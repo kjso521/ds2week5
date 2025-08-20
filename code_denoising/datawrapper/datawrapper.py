@@ -143,12 +143,38 @@ class RandomDataWrapper(Dataset):
             DataKey.name: gt_path.name,
         }
 
-class ControlledDataWrapper(RandomDataWrapper):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.current_epoch = 0
-        self.noise_conv_combinations = list(itertools.product(self.noise_levels, self.conv_directions))
-        self.total_combinations = len(self.noise_conv_combinations)
+class ControlledDataWrapper(Dataset):
+    def __init__(self, file_path: list, loader_cfg: LoaderConfig, training_mode: bool):
+        super().__init__()
+        self.loader_cfg = loader_cfg
+        self.training_mode = training_mode
+
+        # Find all files matching the pattern
+        self.file_list = []
+        for path in file_path:
+            self.file_list.extend(glob.glob(os.path.join(path, self.loader_cfg.data_type)))
+
+        if not self.file_list:
+            logger.error(f"No files found for pattern {self.loader_cfg.data_type} in paths {file_path}")
+            # Raising an error is better than letting it fail later
+            raise FileNotFoundError(f"No data files found in {file_path}")
+
+        # Augmentation settings
+        self.num_augmentations = 1
+        if self.training_mode and self.loader_cfg.augmentation_mode in ['noise', 'both']:
+            num_noise = len(self.loader_cfg["noise_levels"]) if self.loader_cfg["noise_levels"] else 1
+            num_conv = len(self.loader_cfg["conv_directions"]) if self.loader_cfg["conv_directions"] else 1
+            
+            if self.loader_cfg.augmentation_mode == 'both':
+                self.num_augmentations = num_noise * num_conv
+            elif self.loader_cfg.augmentation_mode == 'noise_only':
+                self.num_augmentations = num_noise
+            elif self.loader_cfg.augmentation_mode == 'conv_only':
+                self.num_augmentations = num_conv
+
+        # 시뮬레이터들을 미리 초기화해둡니다.
+        self.noise_simulator = NoiseSimulator(noise_type=NoisyType.from_string(self.loader_cfg["noise_type"]), noise_sigma=0.0) # sigma는 __getitem__에서 매번 덮어씀
+        self.forward_simulator = ForwardSimulator()
 
     def set_epoch(self, epoch: int):
         self.current_epoch = epoch
