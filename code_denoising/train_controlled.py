@@ -157,11 +157,9 @@ class Trainer:
             self.global_step = 0
             self.primary_metric = 0.0
 
-            # --- REMOVED ---
-            # No longer need to set epoch on the dataset, as augmentation
-            # is now based on index.
-            # if hasattr(self.train_dataset_obj, 'set_epoch'):
-            #     self.train_dataset_obj.set_epoch(epoch)
+            # Set the current epoch on the dataset object to ensure varied augmentations
+            if hasattr(self.train_dataset_obj, 'set_epoch'):
+                self.train_dataset_obj.set_epoch(epoch)
 
             self.model.train()
             for i, data in enumerate(tqdm(self.train_loader, leave=False)):

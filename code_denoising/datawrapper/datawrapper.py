@@ -210,6 +210,7 @@ class ControlledDataWrapper(BaseDataWrapper):
         # Initialize simulators
         self.noise_simulator = NoiseSimulator(noise_type=NoisyType.from_string(noise_type), noise_sigma=0.0)
         self.forward_simulator = ForwardSimulator()
+        self.current_epoch = 0 # Initialize epoch counter
 
     def __len__(self):
         return len(self.file_list) * self.num_augmentations
