@@ -2,7 +2,7 @@ import os
 import argparse
 import typing
 from dataclasses import dataclass, asdict, field
-from code_denoising.common.utils import logger
+from code_denoising.common.logger import logger
 
 @dataclass
 class GeneralConfig:
