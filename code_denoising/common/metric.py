@@ -111,4 +111,6 @@ def calculate_psnr(
     
     # Standard PSNR calculation for data in range [0, 1]
     psnr = 10 * torch.log10(1.0 / (mse + 1e-12))
-    return psnr
+    
+    # Add a small epsilon to the final result to prevent nan if mse is exactly 0 for a batch
+    return psnr + 1e-8

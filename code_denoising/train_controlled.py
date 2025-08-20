@@ -297,9 +297,8 @@ class Trainer:
     def _save_checkpoint(self, filename: str):
         """Saves model checkpoint."""
         save_checkpoint(
-            model=self.model,
-            save_dir=self.save_dir,
-            filename=filename,
+            network=self.model,
+            run_dir=self.save_dir,
             epoch=self.epoch,
             model_type=self.config.model_type
         )
