@@ -132,3 +132,5 @@ def parse_args_for_eval_script() -> None:
     
     if args.model_type:
         config.model_type = args.model_type
+
+# Force update to ensure git recognizes the change
