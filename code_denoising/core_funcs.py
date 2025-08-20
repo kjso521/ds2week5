@@ -65,22 +65,25 @@ def get_model(
     logger.info(f"Setting model input channels to {in_channels} based on augmentation mode '{config.augmentation_mode}'.")
 
     if ModelType.from_string(model_type) == ModelType.DnCNN:
+        # Load DnCNN specific config
+        assert isinstance(model_cfg, DnCNNConfig)
         return DnCNN(
-            channels=in_channels,
-            num_of_layers=dncnnconfig.num_of_layers,
-            kernel_size=dncnnconfig.kernel_size,
-            padding=dncnnconfig.padding,
-            features=dncnnconfig.features,
+            channels=in_channels,  # 💡 수정: 동적으로 계산된 in_channels 사용
+            num_of_layers=model_cfg.num_of_layers,
         )
+
     elif ModelType.from_string(model_type) == ModelType.Unet:
+        # Load U-Net specific config
+        assert isinstance(model_cfg, UnetConfig)
         return Unet(
-            in_chans=in_channels,
-            out_chans=unetconfig.out_chans,
-            chans=unetconfig.chans,
-            num_pool_layers=unetconfig.num_pool_layers,
+            in_chans=in_channels,  # 💡 수정: 동적으로 계산된 in_channels 사용
+            out_chans=model_cfg.out_chans,
+            chans=model_cfg.chans,
+            num_pool_layers=model_cfg.num_pool_layers,
         )
+
     else:
-        raise KeyError("model type not matched")
+        raise ValueError(f"Unknown model type: {model_type}")
 
 
 def get_optimizer(
