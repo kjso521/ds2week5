@@ -65,7 +65,7 @@ class Trainer:
 
         self.run_dir.mkdir(parents=True, exist_ok=True)
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        init_logger(self.log_file)
+        logger_add_handler(logger, self.log_file, self.config.log_lv)
         self._logging_config(self.config)
 
         self.epoch = 0
