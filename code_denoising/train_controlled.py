@@ -118,9 +118,12 @@ class Trainer:
         )
         logger.info(f"Valid dataset length : {len(self.valid_dataset_obj)}")
 
+        # Create a separate config for the test set as well
+        test_loader_cfg = dataclasses.replace(loader_cfg, batch=1, shuffle=False, augmentation_mode='none')
+
         self.test_loader, _ = get_data_wrapper_loader(
             file_path=config.test_dataset,
-            loader_cfg=loader_cfg,
+            loader_cfg=dataclasses.asdict(test_loader_cfg),
             training_mode=False,
             data_wrapper_class='controlled'
         )
