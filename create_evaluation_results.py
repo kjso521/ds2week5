@@ -81,13 +81,23 @@ def main():
     logger.info(f"Loading checkpoint from: {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location=device)
     
-    # Infer model type from checkpoint if not overridden
-    if not config.model_type:
+    # --- 💡 수정된 모델 타입 결정 로직 ---
+    # 사용자가 --model_type 인자를 직접 줬는지 확인
+    user_overrode_model_type = '--model_type' in sys.argv
+
+    if user_overrode_model_type:
+        # 사용자가 직접 지정했다면, parse_args_for_eval_script가 이미 config에 설정했으므로 그대로 사용
+        logger.info(f"User explicitly specified model type: {config.model_type}")
+    else:
+        # 사용자가 지정하지 않았다면, 체크포인트에서 정보를 가져옴
+        logger.info("Inferring model type from checkpoint...")
         model_type_from_ckpt = checkpoint.get('model_type')
-        if not model_type_from_ckpt:
-            raise ValueError("Model type not found in checkpoint and not provided as an argument.")
-        config.model_type = model_type_from_ckpt
-    
+        if model_type_from_ckpt:
+            config.model_type = model_type_from_ckpt
+        else:
+            # 체크포인트에도 정보가 없으면, 마지막 수단으로 기본값을 사용
+            logger.warning(f"Model type not found in checkpoint. Falling back to default: {config.model_type}")
+
     logger.info(f"Using model type: {config.model_type}")
     model = get_model(config).to(device)
     state_dict = checkpoint.get('model_state_dict')
