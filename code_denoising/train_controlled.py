@@ -209,7 +209,8 @@ class Trainer:
             logger.success("Best model renewed")
             self.best_metric = primary_metric
             self.best_epoch = self.epoch
-            save_checkpoint(self.model, self.run_dir, epoch=self.epoch, model_type=config.model_type)
+            # Save as the best checkpoint with a fixed name, no epoch number
+            save_checkpoint(self.model, self.run_dir, model_type=config.model_type)
             return True
         return False
 
@@ -218,16 +219,14 @@ class Trainer:
         """Test"""
         
         if tag == "best":
-            checkpoint_path = self.run_dir / "checkpoints" / f"checkpoint_epoch_{self.best_epoch}.ckpt"
+            # Load the best checkpoint directly by its fixed name
+            checkpoint_path = self.run_dir / "checkpoints" / "checkpoint_best.ckpt"
             if not checkpoint_path.exists():
-                # Fallback for older save format
-                checkpoint_path = self.run_dir / "checkpoints" / "checkpoint_best.ckpt"
-                if not checkpoint_path.exists():
-                    logger.warning(f"Best checkpoint not found in {checkpoint_path}. Skipping test.")
-                    return
+                logger.warning(f"Best checkpoint not found in {checkpoint_path}. Skipping test.")
+                return
 
             checkpoint = torch.load(checkpoint_path)
-            best_epoch_info = checkpoint.get('epoch', 'N/A') # Get epoch from checkpoint
+            best_epoch_info = checkpoint.get('epoch', self.best_epoch) # Get epoch from checkpoint for logging
             logger.info(f"Test with '{tag}' model from epoch {best_epoch_info}")
             
             state_dict = checkpoint.get('model_state_dict')
