@@ -41,12 +41,15 @@ def main():
     result_dir.mkdir(parents=True, exist_ok=True)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # 3. Load model from checkpoint
+    # Load Checkpoint
     logger.info(f"Loading checkpoint from: {checkpoint_path}")
     checkpoint = torch.load(checkpoint_path, map_location=device)
-    
-    # --- 💡 수정된 모델 타입 결정 로직 ---
-    # sys.argv를 직접 확인하여 사용자가 명령줄에서 명시했는지 체크
+
+    # 평가 시에는 augmentation_mode를 'none'으로 강제하여 채널 불일치 방지
+    config.augmentation_mode = 'none'
+    logger.info("Setting augmentation_mode to 'none' for evaluation.")
+
+    # Get model type from checkpoint if not provided
     user_overrode_model_type = any(arg.startswith('--model_type') for arg in sys.argv)
 
     if user_overrode_model_type:
