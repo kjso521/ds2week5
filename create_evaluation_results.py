@@ -20,9 +20,8 @@ from tqdm import tqdm
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from code_denoising.common.logger import logger
-from code_denoising.core_funcs import get_data_wrapper_loader, get_model, save_numpy_as_image
+from code_denoising.core_funcs import get_data_wrapper_loader, get_model, save_numpy_as_image, ModelType
 from code_denoising.datawrapper.datawrapper import BaseDataWrapper, DataKey
-from code_denoising.model.model_type import ModelType
 from params import LoaderConfig, config, parse_args_for_eval_script
 
 warnings.filterwarnings("ignore")
