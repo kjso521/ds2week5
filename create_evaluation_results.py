@@ -23,6 +23,7 @@ from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loa
 from code_denoising.core_funcs import get_model
 from params import config, parse_args_for_eval_script
 from code_denoising.common.logger import logger
+from code_denoising.model.model_type import ModelType
 
 warnings.filterwarnings("ignore")
 
