@@ -30,12 +30,11 @@ from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
 from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loader, LoaderConfig, BaseDataWrapper
-from code_denoising.core_funcs import get_model, get_optimizer, get_loss_model, save_checkpoint, test_part
-from code_denoising.common.utils import call_next_id, separator
+from code_denoising.core_funcs import get_model, get_optimizer, get_loss_model, save_checkpoint
+from code_denoising.common.utils import call_next_id, separator, ModelType
 from code_denoising.common.logger import logger, logger_add_handler
 from code_denoising.common.wrapper import error_wrap
 from params import config, dncnnconfig, unetconfig, parse_args_for_train_script
-from code_denoising.model.model_type import ModelType
 
 warnings.filterwarnings("ignore")
 
@@ -151,6 +150,23 @@ class Trainer:
         )
         logger.info(f"Test dataset length : {len(self.test_loader.dataset)}")
 
+    def _logging_config(self, config_):
+        logger.info("General Config")
+        # Since config is a dataclass, we use asdict here which is correct
+        for k, v in dataclasses.asdict(config_).items():
+            if k not in ['dncnn_config', 'unet_config']:
+                logger.info(f"{k}:{v}")
+        logger.info(separator())
+
+        if config_.model_type == "dncnn":
+            logger.info("Model Config (DnCNN)")
+            for k, v in dataclasses.asdict(config_.dncnn_config).items():
+                logger.info(f"{k}:{v}")
+        elif config_.model_type == "unet":
+            logger.info("Model Config (U-Net)")
+            for k, v in dataclasses.asdict(config_.unet_config).items():
+                logger.info(f"{k}:{v}")
+
     @error_wrap
     def _train(self) -> None:
         """train entry point"""
@@ -169,24 +185,29 @@ class Trainer:
                 self.train_dataset_obj.set_epoch(epoch)
 
             self.model.train()
+            train_loss = 0
             for i, data in enumerate(tqdm(self.train_loader, leave=False)):
                 self.global_step += 1
-                image_noise = data[DataKey.image_noise].to(self.device)
                 image_gt = data[DataKey.image_gt].to(self.device)
+                image_noise = data[DataKey.image_noise].to(self.device)
 
                 # Model prediction
                 image_pred = self.model(image_noise)
 
                 # Loss calculation
                 self.optimizer.zero_grad()
-                total_loss = self.loss_model(image_pred, image_gt)
+                loss = self.loss_model(image_pred, image_gt)
 
                 # Loss backward
-                total_loss.backward()
+                loss.backward()
                 self.optimizer.step()
 
-            # --- Save checkpoint for every epoch ---
-            save_checkpoint(self.model, self.run_dir, epoch=self.epoch, model_type=self.config.model_type)
+                train_loss += loss.item()
+                self.writer.add_scalar("Loss/train", loss.item(), self.epoch * len(self.train_loader) + i)
+
+            logger.info(
+                f"Epoch {epoch}: train loss {train_loss / len(self.train_loader):.4f}"
+            )
 
             if epoch % self.config.valid_interval == 0:
                 valid_psnr = self._valid()
@@ -208,24 +229,26 @@ class Trainer:
     def _valid(self) -> float:
         """Validation"""
         logger.info("Valid")
-        primary_metric = test_part(
-            data_loader=self.valid_loader, 
-            network=self.model, 
-            run_dir=self.run_dir, 
-            save_val=self.config.save_val, 
-            epoch=self.epoch
-        )
+        self.model.eval()
+        total_psnr = 0
+        with torch.no_grad():
+            for i, data in enumerate(self.valid_loader):
+                image_gt = data[DataKey.image_gt].to(self.device)
+                image_noise = data[DataKey.image_noise].to(self.device)
+                image_pred = self.model(image_noise)
+                psnr = self.loss_model.psnr(image_pred, image_gt)
+                total_psnr += psnr
+                if self.config.save_val and i < self.config.save_max_idx:
+                    self._save_image(
+                        image_pred,
+                        f"valid_epoch{self.epoch}_{Path(data[DataKey.name][0]).stem}.png",
+                        self.run_dir / "valid_images"
+                    )
 
-        self.primary_metric = primary_metric
-
-        if primary_metric > self.best_psnr:
-            logger.success("Best model renewed")
-            self.best_psnr = primary_metric
-            self.best_epoch = self.epoch
-            # Save as the best checkpoint with a fixed name, no epoch number
-            save_checkpoint(self.model, self.run_dir, model_type=self.config.model_type)
-            return True
-        return False
+        avg_psnr = total_psnr / len(self.valid_loader)
+        self.writer.add_scalar("PSNR/valid", avg_psnr, self.epoch)
+        logger.info(f"Epoch {self.epoch}: valid psnr {avg_psnr:.4f}")
+        return avg_psnr
 
     @error_wrap
     def _test(self) -> None:
@@ -251,8 +274,25 @@ class Trainer:
                     self._save_image(
                         image_pred,
                         f"test_epoch{self.best_epoch}_{Path(data[DataKey.name][0]).stem}.png",
-                        self.run_dir
+                        self.run_dir / "test_images"
                     )
+
+    def _save_checkpoint(self, filename: str):
+        """Saves model checkpoint."""
+        save_checkpoint(
+            model=self.model,
+            save_dir=self.save_dir,
+            filename=filename,
+            epoch=self.epoch,
+            model_type=self.config.model_type
+        )
+
+    def _save_image(self, tensor: torch.Tensor, filename: str, directory: Path):
+        """Saves a tensor as an image."""
+        directory.mkdir(parents=True, exist_ok=True)
+        # Assuming core_funcs.py has the save_numpy_as_image function
+        from code_denoising.core_funcs import save_numpy_as_image
+        save_numpy_as_image(tensor.cpu().numpy(), directory / filename)
 
 
 def main() -> None:
