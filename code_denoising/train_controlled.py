@@ -30,11 +30,13 @@ from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
 from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loader, LoaderConfig, BaseDataWrapper
-from code_denoising.core_funcs import get_model, get_optimizer, get_loss_model, save_checkpoint, ModelType
+from code_denoising.core_funcs import get_model, get_optimizer, get_loss_model, save_checkpoint
 from code_denoising.common.utils import call_next_id, separator
 from code_denoising.common.logger import logger, logger_add_handler
 from code_denoising.common.wrapper import error_wrap
-from params import config, dncnnconfig, unetconfig, parse_args_for_train_script
+from params import config, dncnn_config, unet_config, parse_args_for_train_script
+from code_denoising.model.model_type import ModelType
+
 
 warnings.filterwarnings("ignore")
 
@@ -47,14 +49,19 @@ class Trainer:
         Initialize the trainer.
         """
         self.config = deepcopy(config)
-
-        # Set model config
+        
+        # 모델 타입에 따라 모델 설정을 self.config.model_config에 할당 (원래 로직 복원)
         if ModelType.from_string(self.config.model_type) == ModelType.Unet:
-            self.config.model_config = self.config.unet_config
+            self.config.model_config = deepcopy(unet_config)
         elif ModelType.from_string(self.config.model_type) == ModelType.DnCNN:
-            self.config.model_config = self.config.dncnn_config
+            self.config.model_config = deepcopy(dncnn_config)
 
-        self.run_dir = Path(self.config.run_dir) / f"{self.config.tag}"
+        # Deconvolution 모드일 때만 입력 채널 수를 2로 변경 (최소 수정)
+        if self.config.augmentation_mode in ['conv_only', 'both']:
+            self.config.model_config.in_chans = 2
+            logger.info("Setting model input channels to 2 for deconvolution.")
+
+        self.run_dir = Path(self.config.run_dir) / f"{call_next_id(Path(self.config.run_dir)):05d}_{self.config.tag}"
         self.save_dir = self.run_dir / "checkpoints"
         self.log_file = self.run_dir / "training.log"
         self.writer = SummaryWriter(log_dir=str(self.run_dir))

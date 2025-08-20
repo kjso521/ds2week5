@@ -20,9 +20,10 @@ from tqdm import tqdm
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from code_denoising.common.logger import logger
-from code_denoising.core_funcs import get_data_wrapper_loader, get_model, save_numpy_as_image, ModelType
-from code_denoising.datawrapper.datawrapper import BaseDataWrapper, DataKey
-from params import LoaderConfig, config, parse_args_for_eval_script
+from code_denoising.common.utils import ModelType
+from code_denoising.core_funcs import get_model, save_numpy_as_image
+from code_denoising.datawrapper.datawrapper import BaseDataWrapper, DataKey, get_data_wrapper_loader
+from params import LoaderConfig, config, parse_args_for_eval_script, unet_config, dncnn_config
 
 warnings.filterwarnings("ignore")
 
@@ -63,11 +64,16 @@ def main():
 
     logger.info(f"Using model type: {config.model_type}")
     
-    # 💡 수정: Trainer.__init__ 로직과 동일하게 model_config를 동적으로 추가
+    # 원상 복구: Trainer.__init__ 로직과 동일하게 model_config를 동적으로 추가
     if ModelType.from_string(config.model_type) == ModelType.Unet:
-        config.model_config = config.unet_config
+        config.model_config = unet_config
     elif ModelType.from_string(config.model_type) == ModelType.DnCNN:
-        config.model_config = config.dncnn_config
+        config.model_config = dncnn_config
+
+    # Deconvolution 모드일 때만 입력 채널 수를 2로 변경 (최소 수정)
+    if config.augmentation_mode in ['conv_only', 'both']:
+        config.model_config.in_chans = 2
+        logger.info("Setting model input channels to 2 for deconvolution.")
 
     model = get_model(config).to(device)
     model.load_state_dict(checkpoint['model_state_dict'])
