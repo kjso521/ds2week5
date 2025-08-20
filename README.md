@@ -203,3 +203,41 @@
 - **`Trainer` 클래스의 초기화 로직 파괴 및 복구**:
     - **문제점**: 반복적인 리팩토링 과정에서 `Trainer` 클래스의 `__init__` 함수에서 `optimizer`, `SummaryWriter` 등 필수 속성을 초기화하는 로직이 누락되거나, `run` 메소드가 삭제되는 등 클래스의 기본 구조가 파괴되어 수많은 `AttributeError`가 발생했습니다.
     - **해결책**: `git` 기록과 논리적 분석을 통해, `__init__` 함수가 `_init_essential` 헬퍼 함수를 호출하여 `model`, `optimizer`, `loss`, `writer` 등을 모두 순서대로 초기화하는 원래의 안정적인 구조로 완벽하게 복구했습니다.
+
+## 14. 시각화 자료 생성 (`VISUALIZATION/`)
+
+`VISUALIZATION/` 폴더는 학습된 모델의 성능을 정성적으로 평가하고, 보고서나 발표 자료에 사용할 비교 이미지를 생성하기 위한 모듈입니다. 이 모듈은 Colab이 아닌 로컬 환경에서 실행하여 특정 샘플에 대한 결과만 빠르게 확인할 수 있도록 설계되었습니다.
+
+### 주요 기능
+
+`VISUALIZATION/create_visuals.py` 스크립트는 다음 두 가지 핵심 시각화 기능을 제공합니다.
+
+1.  **테스트셋 비교 (`--vis_type test_set`)**:
+    *   열화된 테스트 이미지(`test_y`)와, 이를 모델로 복원한 이미지를 나란히 비교하여 보여줍니다.
+    *   결과물: `[열화 이미지] vs [복원 이미지]`
+
+2.  **전체 과정 비교 (`--vis_type full_process`)**:
+    *   깨끗한 원본 학습 이미지(`train`)를 가져와 시뮬레이터로 열화시킨 후, 이를 다시 모델로 복원하는 전 과정을 보여줍니다.
+    *   결과물: `[원본 이미지] -> [열화 이미지] -> [복원 이미지]`
+
+### 사용법
+
+- **폴더 구조**:
+    - `VISUALIZATION/checkpoints/`: 이 폴더 안에 분석하고 싶은 모델의 `.ckpt` 파일을 넣습니다. (e.g., `e2e_unet_best.ckpt`)
+    - `VISUALIZATION/output/`: 생성된 비교 이미지가 저장되는 폴더입니다.
+- **실행 명령어 (예시)**:
+    ```bash
+    # (1) 테스트셋의 10, 20, 30번째 이미지를 e2e_unet 모델로 비교
+    python VISUALIZATION/create_visuals.py \
+        --vis_type test_set \
+        --checkpoint VISUALIZATION/checkpoints/e2e_unet_best.ckpt \
+        --data_path dataset/test_y \
+        --indices 10 20 30
+
+    # (2) 학습셋의 100, 200번째 이미지의 전체 복원 과정을 sbs_unet 모델로 비교
+    python VISUALIZATION/create_visuals.py \
+        --vis_type full_process \
+        --checkpoint VISUALIZATION/checkpoints/sbs_unet_best.ckpt \
+        --data_path dataset/train \
+        --indices 100 200
+    ```
