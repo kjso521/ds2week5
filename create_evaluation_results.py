@@ -24,7 +24,7 @@ import numpy as np
 from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loader, LoaderConfig
 from code_denoising.core_funcs import get_model
 from params import config, parse_args_for_eval_script  # Import the new parsing function
-from code_denoising.common.utils import logger
+from code_denoising.common.logger import logger
 
 warnings.filterwarnings("ignore")
 
