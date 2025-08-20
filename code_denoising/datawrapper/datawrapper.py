@@ -16,7 +16,7 @@ from torch import Tensor
 
 from .noise_simulator import NoiseSimulator, NoisyType
 from dataset.forward_simulator import ForwardSimulator
-from ..common.utils import logger
+from ..common.logger import logger
 
 
 prob_flip: float = 0.5
