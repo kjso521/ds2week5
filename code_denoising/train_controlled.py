@@ -28,6 +28,7 @@ from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
+from torch import Tensor
 
 from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loader, LoaderConfig, BaseDataWrapper
 from code_denoising.core_funcs import get_model, get_optimizer, get_loss_model, save_checkpoint, test_part, ModelType
@@ -288,12 +289,18 @@ class Trainer:
             model_type=self.config.model_type
         )
 
-    def _save_image(self, tensor: torch.Tensor, filename: str, directory: Path):
-        """Saves a tensor as an image."""
-        directory.mkdir(parents=True, exist_ok=True)
-        # Assuming core_funcs.py has the save_numpy_as_image function
-        from code_denoising.core_funcs import save_numpy_as_image
-        save_numpy_as_image(tensor.cpu().numpy(), directory / filename)
+    def _save_image(
+        self,
+        image_gt: Tensor,
+        image_noise: Tensor,
+        image_pred: Tensor,
+        name: str,
+        epoch: int,
+    ) -> None:
+        from code_denoising.common.utils import save_numpy_as_image
+        
+        save_dir = self.run_dir / "valid" / f"epoch_{epoch}"
+        save_dir.mkdir(parents=True, exist_ok=True)
 
 
 def main() -> None:
