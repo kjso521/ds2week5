@@ -4,6 +4,7 @@ from enum import Enum
 from argparse import ArgumentParser
 import torch
 import typing
+import argparse
 
 # ... (Previous dataclasses: GeneralConfig, DnCNNConfig, UnetConfig) ...
 # I will rewrite the entire file content as it was corrupted.
@@ -133,6 +134,28 @@ def parse_args_for_train_script():
         config.train_dataset = [os.path.join(config.DATA_ROOT, "train")]
         config.valid_dataset = [os.path.join(config.DATA_ROOT, "val")]
         config.test_dataset = [os.path.join(config.DATA_ROOT, "val")]
+        
+def parse_args_for_eval_script() -> None:
+    """
+    Parses command line arguments for the evaluation script.
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--checkpoint_path", required=True, type=str, help="Path to the trained model checkpoint.")
+    parser.add_argument("--result_dir", required=True, type=str, help="Directory to save the restored images.")
+    parser.add_argument("--test_dataset_path", required=True, type=str, help="Path to the test dataset (e.g., 'dataset/test_y').")
+    
+    # Allow overriding model_type from the command line
+    parser.add_argument("--model_type", type=str, default=None, help="Override model type (e.g., 'unet', 'dncnn'). If not provided, it's inferred from the checkpoint.")
+    
+    args = parser.parse_args()
+    
+    # Update the global config object
+    config.checkpoint_path = args.checkpoint_path
+    config.result_dir = args.result_dir
+    config.test_dataset = [args.test_dataset_path]
+    
+    if args.model_type:
+        config.model_type = args.model_type
 
 if __name__ == "__main__":
     pass

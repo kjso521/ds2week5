@@ -23,8 +23,8 @@ import numpy as np
 # 프로젝트 루트를 기준으로 필요한 모듈 import
 from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loader, LoaderConfig
 from code_denoising.core_funcs import get_model
-from params import config
-from code_denoising.common.logger import logger
+from params import config, parse_args_for_eval_script  # Import the new parsing function
+from code_denoising.common.utils import logger
 
 warnings.filterwarnings("ignore")
 
@@ -65,57 +65,70 @@ def create_results(
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Create evaluation results from a checkpoint.")
-    parser.add_argument("--checkpoint_path", type=str, required=True, help="Path to the model checkpoint file.")
-    parser.add_argument("--data_root", type=str, default="dataset/test_y", help="Path to the test data directory.")
-    parser.add_argument("--result_dir", type=str, default="result", help="Directory to save the result .npy files.")
-    args = parser.parse_args()
+    """
+    Main function to run the evaluation.
+    """
+    # 1. Parse arguments and update the global config
+    parse_args_for_eval_script()
 
-    # --- 체크포인트 로드 ---
-    if not os.path.exists(args.checkpoint_path):
-        raise FileNotFoundError(f"Checkpoint file not found at {args.checkpoint_path}")
+    # 2. Setup paths and device
+    checkpoint_path = Path(config.checkpoint_path)
+    result_dir = Path(config.result_dir)
+    result_dir.mkdir(parents=True, exist_ok=True)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    logger.info(f"Loading checkpoint from: {args.checkpoint_path}")
-    checkpoint = torch.load(args.checkpoint_path, map_location=config.device)
+    # 3. Load model from checkpoint
+    logger.info(f"Loading checkpoint from: {checkpoint_path}")
+    checkpoint = torch.load(checkpoint_path, map_location=device)
     
-    # 체크포인트에 저장된 model_type을 사용하여 모델 로드
-    config.model_type = checkpoint.get("model_type", "dncnn") # 이전 버전 호환성을 위해 dncnn을 기본값으로
-    logger.info(f"Loading model type: {config.model_type}")
-
-    network = get_model(config).to(config.device)
+    # Infer model type from checkpoint if not overridden
+    if not config.model_type:
+        model_type_from_ckpt = checkpoint.get('model_type')
+        if not model_type_from_ckpt:
+            raise ValueError("Model type not found in checkpoint and not provided as an argument.")
+        config.model_type = model_type_from_ckpt
     
-    state_dict = checkpoint['model_state_dict']
-    
-    # DataParallel 래핑 핸들링
-    if isinstance(network, torch.nn.DataParallel):
-        network.module.load_state_dict(state_dict)
-    else:
-        network.load_state_dict(state_dict)
-    network.eval()
+    logger.info(f"Using model type: {config.model_type}")
+    model = get_model(config).to(device)
+    state_dict = checkpoint.get('model_state_dict')
+    if not state_dict:
+        raise ValueError("Could not find a valid 'model_state_dict' in the checkpoint.")
+    model.load_state_dict(state_dict)
+    model.eval()
 
-    # --- 데이터 로더 설정 ---
+    # 4. Setup data loader for the test dataset
     loader_cfg = LoaderConfig(
-        data_type=config.data_type,
-        batch=8,
+        data_type='*.npy',
+        batch=1,  # Process one image at a time
         num_workers=0,
         shuffle=False,
-        augmentation_mode='none',
-        noise_type=config.noise_type,
-        noise_levels=config.noise_levels,
-        conv_directions=config.conv_directions
+        augmentation_mode='none', # No augmentation during evaluation
+        training_phase='end_to_end', # This doesn't matter for eval but needs a value
+        noise_type="gaussian",
+        noise_levels=[],
+        conv_directions=[]
     )
-    data_loader, _ = get_data_wrapper_loader(
-        file_path=[args.data_root],
+    test_loader, _ = get_data_wrapper_loader(
+        file_path=config.test_dataset,
         loader_cfg=loader_cfg,
         training_mode=False,
+        data_wrapper_class='controlled' # Use the flexible datawrapper
     )
 
-    if not data_loader:
-        logger.error(f"Failed to create data loader from {args.data_root}. No data found?")
-        return
-        
-    # --- 결과 생성 ---
-    create_results(network, data_loader, args.result_dir)
+    # 5. Run inference and save results
+    logger.info(f"Starting inference on {len(test_loader.dataset)} images...")
+    with torch.no_grad():
+        for data in tqdm(test_loader):
+            input_tensor = data[DataKey.image_noise].to(device)
+            filename = data[DataKey.filename]
+
+            output_tensor = model(input_tensor)
+
+            output_np = output_tensor.squeeze().cpu().numpy()
+            save_path = result_dir / f"{Path(filename).stem}.npy"
+            np.save(save_path, output_np)
+    
+    logger.info(f"Inference complete. Results saved to: {result_dir}")
 
 if __name__ == "__main__":
     main()
