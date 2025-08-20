@@ -140,19 +140,35 @@ def parse_args_for_eval_script() -> None:
     Parses command line arguments for the evaluation script.
     """
     parser = argparse.ArgumentParser()
+    # --- 💡 수정된 부분: data_root 인자 추가 ---
+    parser.add_argument("--data_root", type=str, default=None, help="Path to the dataset root directory (e.g., '/content/drive/MyDrive/.../dataset'). Overrides default config.")
     parser.add_argument("--checkpoint_path", required=True, type=str, help="Path to the trained model checkpoint.")
     parser.add_argument("--result_dir", required=True, type=str, help="Directory to save the restored images.")
-    parser.add_argument("--test_dataset_path", required=True, type=str, help="Path to the test dataset (e.g., 'dataset/test_y').")
+    parser.add_argument("--test_dataset_path", required=True, type=str, help="Path to the test dataset (e.g., 'test_y'). This path is relative to the data_root.")
     
     # Allow overriding model_type from the command line
     parser.add_argument("--model_type", type=str, default=None, help="Override model type (e.g., 'unet', 'dncnn'). If not provided, it's inferred from the checkpoint.")
     
     args = parser.parse_args()
     
+    # --- 💡 수정된 부분: data_root가 제공되면, config의 경로들을 덮어씀 ---
+    if args.data_root:
+        # logger.info(f"Overriding data root with provided path: {args.data_root}") # logger is not defined in this file
+        config.DATA_ROOT = args.data_root
+        # test_dataset_path를 data_root에 대한 상대 경로로 처리
+        config.test_dataset = [os.path.join(args.data_root, args.test_dataset_path)]
+    else:
+        # 기존 로직: DATA_ROOT가 설정되어 있으면 그 하위 경로를 사용
+        if config.DATA_ROOT:
+            config.test_dataset = [os.path.join(config.DATA_ROOT, args.test_dataset_path)]
+        else:
+            # DATA_ROOT가 없으면, test_dataset_path를 절대 경로로 간주
+            config.test_dataset = [args.test_dataset_path]
+
+
     # Update the global config object
     config.checkpoint_path = args.checkpoint_path
     config.result_dir = args.result_dir
-    config.test_dataset = [args.test_dataset_path]
     
     if args.model_type:
         config.model_type = args.model_type
