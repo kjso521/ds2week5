@@ -65,7 +65,14 @@ def get_config_from_json(json_file: str) -> dict:
 
 def save_numpy_as_image(array: np.ndarray, file_name: str) -> None:
     """
-    Save numpy array as image.
+    Saves a numpy array as a grayscale image, handling tensor-specific formats.
     """
-    img = Image.fromarray(array)
+    # Squeeze singleton dimensions for batch and channels (e.g., [1, 1, H, W] -> [H, W])
+    array_2d = np.squeeze(array)
+    
+    # Clip, scale to 0-255, and convert to uint8
+    # The model output is typically in the range [0, 1]
+    image_data = np.clip(array_2d * 255.0, 0, 255).astype(np.uint8)
+
+    img = Image.fromarray(image_data)
     img.save(file_name)
