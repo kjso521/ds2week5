@@ -19,7 +19,6 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 import time
 import warnings
-from dataclasses import asdict
 from enum import Enum
 
 import torch
@@ -53,18 +52,19 @@ class Trainer:
 
         # Log configurations
         logger.info("General Config")
-        for k, v in asdict(config).items():
+        # Since config is a dataclass, we use asdict here which is correct
+        for k, v in dataclasses.asdict(config).items():
             logger.info(f"{k}:{v}")
         logger.info(separator())
         
         # This part depends on the model_type, so we log it after parsing args
         if config.model_type == "dncnn":
             logger.info("Model Config (DnCNN)")
-            for k, v in asdict(dncnnconfig).items():
+            for k, v in dataclasses.asdict(dncnnconfig).items():
                 logger.info(f"{k}:{v}")
         elif config.model_type == "unet":
             logger.info("Model Config (U-Net)")
-            for k, v in asdict(unetconfig).items():
+            for k, v in dataclasses.asdict(unetconfig).items():
                 logger.info(f"{k}:{v}")
 
         os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
@@ -97,35 +97,40 @@ class Trainer:
             training_phase=config.training_phase, # Pass parameter
             noise_type=config.noise_type,
             noise_levels=config.noise_levels,
-            conv_directions=config.conv_directions,
+            conv_directions=config.conv_directions
         )
         self.train_loader, self.train_dataset_obj = get_data_wrapper_loader(
             file_path=config.train_dataset,
             training_mode=True,
             data_wrapper_class='controlled',
-            **dataclasses.asdict(loader_cfg)
+            **loader_cfg
         )
         logger.info(f"Train dataset length : {len(self.train_dataset_obj)}")
 
-        # Create a new, separate config for the validation set to ensure immutability
-        valid_loader_cfg = dataclasses.replace(loader_cfg, batch=config.valid_batch, shuffle=False)
+        # Create a new, separate config for the validation set using dict.copy()
+        valid_loader_cfg = loader_cfg.copy()
+        valid_loader_cfg['batch'] = config.valid_batch
+        valid_loader_cfg['shuffle'] = False
         
         self.valid_loader, self.valid_dataset_obj = get_data_wrapper_loader(
             file_path=config.valid_dataset,
             training_mode=True, # Augmentation is controlled by mode, not just training_mode
             data_wrapper_class='controlled',
-            **dataclasses.asdict(valid_loader_cfg)
+            **valid_loader_cfg
         )
         logger.info(f"Valid dataset length : {len(self.valid_dataset_obj)}")
 
         # Create a separate config for the test set as well
-        test_loader_cfg = dataclasses.replace(loader_cfg, batch=1, shuffle=False, augmentation_mode='none')
+        test_loader_cfg = loader_cfg.copy()
+        test_loader_cfg['batch'] = 1
+        test_loader_cfg['shuffle'] = False
+        test_loader_cfg['augmentation_mode'] = 'none'
 
         self.test_loader, _ = get_data_wrapper_loader(
             file_path=config.test_dataset,
             training_mode=False,
             data_wrapper_class='controlled',
-            **dataclasses.asdict(test_loader_cfg)
+            **test_loader_cfg
         )
         logger.info(f"Test dataset length : {len(self.test_loader.dataset)}")
 
