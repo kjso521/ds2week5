@@ -87,3 +87,6 @@ relationship_verification_results/
 
 # Notebook checkpoints
 .ipynb_checkpoints/
+
+# Visualization folder
+VISUALIZATION/
