@@ -240,7 +240,7 @@ class ControlledDataWrapper(BaseDataWrapper):
             if self.augmentation_mode == 'conv_only':
                 conv_direction = self.conv_directions[(self.current_epoch + index) % len(self.conv_directions)]
                 # forward_simulator는 [2, H, W]를 반환
-                image_noise_tensor = self.forward_simulator(image_noise_tensor_4d, conv_direction)
+                image_noise_tensor = self.forward_simulator(image_noise_tensor_4d, conv_direction).squeeze(0)
             
             elif self.augmentation_mode == 'noise_only':
                 noise_level = self.noise_levels[(self.current_epoch + index) % len(self.noise_levels)]
