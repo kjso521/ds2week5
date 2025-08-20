@@ -181,12 +181,15 @@ class ControlledDataWrapper(Dataset):
         self.noise_simulator = NoiseSimulator(noise_type=NoisyType.from_string(noise_type), noise_sigma=0.0)
         self.forward_simulator = ForwardSimulator()
 
+    def __len__(self):
+        return len(self.file_list) * self.num_augmentations
+
     def set_epoch(self, epoch: int):
         self.current_epoch = epoch
 
-    def __getitem__(self, idx: int) -> dict[DataKey, Tensor | str]:
-        image_gt_np = self._load_from_npy(self.file_list[idx])
-        _name = Path(self.file_list[idx]).name
+    def __getitem__(self, index: int) -> dict[DataKey, Tensor | str]:
+        image_gt_np = self._load_from_npy(self.file_list[index])
+        _name = Path(self.file_list[index]).name
 
         if self.training_mode:
             image_gt_np = self._augment(image_gt_np)
@@ -196,16 +199,16 @@ class ControlledDataWrapper(Dataset):
 
         if self.augmentation_mode == 'noise_only':
             if len(self.noise_levels) > 0:
-                noise_level = self.noise_levels[(self.current_epoch + idx) % len(self.noise_levels)]
+                noise_level = self.noise_levels[(self.current_epoch + index) % len(self.noise_levels)]
                 self.noise_simulator.noise_sigma = noise_level
                 image_noise_tensor = self.noise_simulator(image_noise_tensor)
         elif self.augmentation_mode == 'conv_only':
             if len(self.conv_directions) > 0:
-                conv_direction = self.conv_directions[(self.current_epoch + idx) % len(self.conv_directions)]
+                conv_direction = self.conv_directions[(self.current_epoch + index) % len(self.conv_directions)]
                 image_noise_tensor = self.forward_simulator(image_noise_tensor, conv_direction)
         elif self.augmentation_mode == 'both':
             if self.total_combinations > 0:
-                combination_idx = (self.current_epoch + idx) % self.total_combinations
+                combination_idx = (self.current_epoch + index) % self.total_combinations
                 noise_level, conv_direction = self.noise_conv_combinations[combination_idx]
                 
                 image_noise_tensor = self.forward_simulator(image_noise_tensor, conv_direction)
