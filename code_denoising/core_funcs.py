@@ -62,7 +62,7 @@ def get_model(config: "GeneralConfig") -> NETWORK:
     if ModelType.from_string(model_type) == ModelType.DnCNN:
         assert isinstance(model_cfg, DnCNNConfig)
         return DnCNN(
-            channels=model_cfg.in_chans,
+            channels=model_cfg.channels,
             num_of_layers=model_cfg.num_of_layers,
         )
 
