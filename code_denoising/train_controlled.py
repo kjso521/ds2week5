@@ -289,18 +289,12 @@ class Trainer:
             model_type=self.config.model_type
         )
 
-    def _save_image(
-        self,
-        image_gt: Tensor,
-        image_noise: Tensor,
-        image_pred: Tensor,
-        name: str,
-        epoch: int,
-    ) -> None:
+    def _save_image(self, tensor: torch.Tensor, filename: str, directory: Path):
+        """Saves a tensor as an image."""
+        directory.mkdir(parents=True, exist_ok=True)
+        # Assuming core_funcs.py has the save_numpy_as_image function
         from code_denoising.common.utils import save_numpy_as_image
-        
-        save_dir = self.run_dir / "valid" / f"epoch_{epoch}"
-        save_dir.mkdir(parents=True, exist_ok=True)
+        save_numpy_as_image(tensor.cpu().numpy(), directory / filename)
 
 
 def main() -> None:
