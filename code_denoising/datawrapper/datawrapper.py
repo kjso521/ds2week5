@@ -184,9 +184,12 @@ class ControlledDataWrapper(BaseDataWrapper):
         if not self.file_list:
             raise FileNotFoundError(f"No data files found in {file_path}")
 
+        # Store augmentation mode for use in __getitem__
+        self.augmentation_mode = augmentation_mode
+
         # Augmentation settings
         self.num_augmentations = 1
-        if self.training_mode and augmentation_mode in ['noise', 'both']:
+        if self.training_mode and self.augmentation_mode in ['noise', 'both']:
             num_noise = len(noise_levels) if noise_levels else 1
             num_conv = len(conv_directions) if conv_directions else 1
             
@@ -201,6 +204,8 @@ class ControlledDataWrapper(BaseDataWrapper):
         self.noise_levels = noise_levels
         self.conv_directions = conv_directions
         self.noise_conv_combinations = list(itertools.product(self.noise_levels, self.conv_directions))
+        # Store total combinations for use in __getitem__
+        self.total_combinations = len(self.noise_conv_combinations)
 
         # Initialize simulators
         self.noise_simulator = NoiseSimulator(noise_type=NoisyType.from_string(noise_type), noise_sigma=0.0)
