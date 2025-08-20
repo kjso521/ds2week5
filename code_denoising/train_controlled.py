@@ -227,7 +227,7 @@ class Trainer:
                     self.best_metric = valid_psnr
                     self.best_epoch = epoch
                     self.tol_count = 0
-                    logger.info("Best model renewed")
+                    logger.success("Best model renewed")
                     self._save_checkpoint("checkpoint_best.ckpt")
                 else:
                     self.tol_count += 1
@@ -268,7 +268,8 @@ class Trainer:
         """Saves model checkpoint."""
         save_checkpoint(
             network=self.model,
-            run_dir=self.save_dir,
+            save_dir=self.save_dir,
+            filename=filename,
             epoch=self.epoch,
             model_type=self.config.model_type
         )

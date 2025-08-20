@@ -132,13 +132,13 @@ def set_optimizer_lr(
 
 
 def save_checkpoint(
-    network: NETWORK, run_dir: Path, epoch: int | None = None, model_type: str | None = None
+    network: NETWORK, save_dir: Path, filename: str, epoch: int | None = None, model_type: str | None = None
 ) -> None:
     """
     Saves a checkpoint of the model.
     """
-    checkpoints_dir = run_dir / "checkpoints"
-    checkpoints_dir.mkdir(exist_ok=True)
+    save_dir.mkdir(exist_ok=True)
+    save_path = save_dir / filename
 
     if isinstance(network, torch.nn.DataParallel):
         state_dict = network.module.state_dict()
@@ -151,14 +151,9 @@ def save_checkpoint(
         "model_type": model_type,
     }
 
-    if epoch is not None:
-        checkpoint_path = checkpoints_dir / f"checkpoint_epoch_{epoch}.ckpt"
-        torch.save(checkpoint_data, checkpoint_path)
-    else:
-        # Save as best checkpoint
-        checkpoint_path = checkpoints_dir / "checkpoint_best.ckpt"
-        torch.save(checkpoint_data, checkpoint_path)
-        logger.info(f"Best model checkpoint saved to {checkpoint_path}")
+    torch.save(checkpoint_data, save_path)
+    if "best" in filename:
+        logger.info(f"Best model checkpoint saved to {save_path}")
 
 
 def zero_optimizers(
