@@ -49,12 +49,23 @@ def create_sbs_results(
 
             # Step 1: Denoising
             denoised_image = denoising_network(image_noise)
+            
+            # --- 💡 수정: Deconvolution 모델 입력을 위해 2채널로 변환 ---
+            # denoised_image (실수부)와 0으로 채워진 텐서(허수부)를 결합합니다.
+            zeros = torch.zeros_like(denoised_image)
+            deconv_input = torch.cat([denoised_image, zeros], dim=1) # Shape: [B, 2, H, W]
+
             # Step 2: Deconvolution
-            final_image = deconv_network(denoised_image)
+            final_image = deconv_network(deconv_input)
 
 
             for i in range(final_image.shape[0]):
-                pred_np = final_image[i, 0, :, :].cpu().numpy()
+                # The output of deconvolution is 2-channel, convert to magnitude for saving
+                pred_complex = final_image[i, :, :, :]
+                pred_real = pred_complex[0, :, :]
+                pred_imag = pred_complex[1, :, :]
+                pred_np = torch.sqrt(pred_real**2 + pred_imag**2).cpu().numpy()
+                
                 filename = filenames[i]
                 
                 base_filename = Path(filename).stem
