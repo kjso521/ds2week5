@@ -21,9 +21,9 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from code_denoising.common.logger import logger
 from code_denoising.core_funcs import get_model, ModelType
-from code_denoising.datawrapper.datawrapper import BaseDataWrapper, DataKey, get_data_wrapper_loader
+from code_denoising.datawrapper.datawrapper import BaseDataWrapper, DataKey, get_data_wrapper_loader, LoaderConfig
 from code_denoising.common.utils import save_numpy_as_image
-from params import LoaderConfig, config, parse_args_for_eval_script, unetconfig, dncnnconfig
+from params import config, parse_args_for_eval_script, unetconfig, dncnnconfig
 
 warnings.filterwarnings("ignore")
 

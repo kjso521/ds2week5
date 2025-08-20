@@ -81,9 +81,15 @@ class Trainer:
         self.tol_count: int = 0
         self.global_step: int = 0
 
-    def run(self) -> None:
+        self._init_essential()
+
+    def _init_essential(self):
         self._set_data()
         self._set_network()
+        self._set_optimizer()
+        self._set_loss()
+
+    def run(self) -> None:
         self._train()
         self._test("best")
 
@@ -101,6 +107,8 @@ class Trainer:
     @error_wrap
     def _set_network(self) -> None:
         self.model = get_model(self.config).to(self.config.device)
+        if self.config.parallel:
+            self.model = DataParallel(self.model)
 
     @error_wrap
     def _set_optimizer(self) -> None:
@@ -109,7 +117,7 @@ class Trainer:
 
     @error_wrap
     def _set_loss(self) -> None:
-        self.loss_model = get_loss_model(self.config)
+        self.loss_model = get_loss_model(self.config).to(self.config.device)
 
     @error_wrap
     def _set_data(self) -> None:
