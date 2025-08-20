@@ -213,59 +213,29 @@ class Trainer:
             )
 
             if epoch % self.config.valid_interval == 0:
-                valid_psnr = self._valid()
+                valid_psnr = test_part(
+                    data_loader=self.valid_loader,
+                    network=self.model,
+                    run_dir=self.run_dir,
+                    save_val=self.config.save_val,
+                    epoch=epoch,
+                    test_mode=False
+                )
                 self.scheduler.step(valid_psnr)
 
                 if valid_psnr > self.best_metric:
                     self.best_metric = valid_psnr
                     self.best_epoch = epoch
                     self.tol_count = 0
+                    logger.info("Best model renewed")
                     self._save_checkpoint("checkpoint_best.ckpt")
                 else:
                     self.tol_count += 1
                     if self.tol_count >= self.config.valid_tol:
                         logger.info(f"Early stop at epoch {epoch}")
                         break
-                self._save_checkpoint(f"checkpoint_epoch_{epoch}.ckpt")
-
-    @error_wrap
-    def _valid(self) -> float:
-        """Validation"""
-        logger.info("Valid")
-        self.model.eval()
-        total_psnr = 0
-        num_images = 0
-        with torch.no_grad():
-            for i, data in enumerate(self.valid_loader):
-                image_gt = data[DataKey.image_gt].to(self.device)
-                image_noise = data[DataKey.image_noise].to(self.device)
-                image_pred = self.model(image_noise)
-                
-                # Iterate over each image in the batch
-                for j in range(image_pred.shape[0]):
-                    pred_single = image_pred[j:j+1, ...]
-                    gt_single = image_gt[j:j+1, ...]
-                    
-                    # Calculate PSNR for a single image
-                    psnr = calculate_psnr(pred_single, gt_single)
-                    total_psnr += psnr.item()
-                    num_images += 1
-                    
-                    # Save a limited number of validation images
-                    # i is batch index, j is image index in batch
-                    current_image_index = i * self.config.valid_batch + j
-                    if self.config.save_val and current_image_index < self.config.save_max_idx:
-                        name_single = Path(data[DataKey.name][j]).stem
-                        self._save_image(
-                            pred_single,
-                            f"valid_epoch{self.epoch}_{name_single}.png",
-                            self.run_dir / "valid_images"
-                        )
-
-        avg_psnr = total_psnr / num_images if num_images > 0 else 0
-        self.writer.add_scalar("PSNR/valid", avg_psnr, self.epoch)
-        logger.info(f"Epoch {self.epoch}: valid psnr {avg_psnr:.4f}")
-        return avg_psnr
+                # Save checkpoint every validation interval regardless of performance
+                # self._save_checkpoint(f"checkpoint_epoch_{epoch}.ckpt")
 
     @error_wrap
     def _test(self, mode: str) -> None:
