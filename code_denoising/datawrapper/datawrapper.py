@@ -232,9 +232,17 @@ class ControlledDataWrapper(BaseDataWrapper):
             image_gt_np = self._augment(image_np)
             image_gt_tensor = torch.from_numpy(image_gt_np.copy()).unsqueeze(0).float() # Shape: [1, H, W]
             
+            # For deconvolution, the ground truth is a complex image (real + imaginary)
+            # Since the original GT is real, we represent it as a 2-channel tensor
+            # with the second channel (imaginary part) being all zeros.
+            if self.augmentation_mode in ['conv_only', 'both']:
+                zeros = torch.zeros_like(image_gt_tensor)
+                image_gt_tensor = torch.cat([image_gt_tensor, zeros], dim=0) # Shape: [2, H, W]
+
             # --- 💡 수정된 부분: 시뮬레이터 입력 형태를 [1, 1, H, W]로 통일 ---
             # 모든 시뮬레이터는 [Batch, Channel, H, W] 형태의 4D 텐서를 기대함
-            image_noise_tensor_4d = image_gt_tensor.unsqueeze(0) # Shape: [1, 1, H, W]
+            # We use the real part of the GT for the forward simulation input.
+            image_noise_tensor_4d = image_gt_tensor[0:1, ...].unsqueeze(0) # Shape: [1, 1, H, W]
 
             # Apply on-the-fly degradation
             if self.augmentation_mode == 'conv_only':
