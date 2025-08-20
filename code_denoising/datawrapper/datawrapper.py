@@ -16,6 +16,7 @@ from torch import Tensor
 
 from .noise_simulator import NoiseSimulator, NoisyType
 from dataset.forward_simulator import ForwardSimulator
+from ..common.utils import logger
 
 
 prob_flip: float = 0.5
@@ -39,7 +40,24 @@ class LoaderConfig(TypedDict):
     conv_directions: list[tuple[float, float]]
 
 
-class RandomDataWrapper(Dataset):
+# Base class for all data wrappers to share common utilities
+class BaseDataWrapper(Dataset):
+    def _load_from_npy(self, npy_path: str) -> np.ndarray:
+        """Loads a numpy array from a file."""
+        try:
+            return np.load(npy_path)
+        except Exception as e:
+            logger.error(f"Error loading npy file at {npy_path}: {e}")
+            return np.array([]) # Return empty array on failure
+
+    def __getitem__(self, index):
+        raise NotImplementedError("Each child class must implement its own __getitem__ method.")
+
+    def __len__(self):
+        raise NotImplementedError("Each child class must implement its own __len__ method.")
+
+
+class RandomDataWrapper(BaseDataWrapper):
     file_list: list[str]
     training_mode: bool
     
@@ -143,7 +161,7 @@ class RandomDataWrapper(Dataset):
             DataKey.name: gt_path.name,
         }
 
-class ControlledDataWrapper(Dataset):
+class ControlledDataWrapper(BaseDataWrapper):
     def __init__(self, file_path: list, training_mode: bool, data_type: str, 
                  augmentation_mode: str, noise_type: str, noise_levels: list, 
                  conv_directions: list, **kwargs):
@@ -153,10 +171,9 @@ class ControlledDataWrapper(Dataset):
         # Find all files matching the pattern
         self.file_list = []
         for path in file_path:
-            self.file_list.extend(glob.glob(os.path.join(path, data_type)))
-
+            self.file_list.extend(glob.glob(os.path.join(path, kwargs.get("data_type", "*.npy"))))
+        
         if not self.file_list:
-            logger.error(f"No files found for pattern {data_type} in paths {file_path}")
             raise FileNotFoundError(f"No data files found in {file_path}")
 
         # Augmentation settings
@@ -188,8 +205,15 @@ class ControlledDataWrapper(Dataset):
         self.current_epoch = epoch
 
     def __getitem__(self, index: int) -> dict[DataKey, Tensor | str]:
-        image_gt_np = self._load_from_npy(self.file_list[index])
-        _name = Path(self.file_list[index]).name
+        # Determine the actual file index and augmentation index
+        file_idx = index // self.num_augmentations
+        aug_idx = index % self.num_augmentations
+
+        image_gt_np = self._load_from_npy(self.file_list[file_idx])
+        _name = Path(self.file_list[file_idx]).name
+
+        # Convert to tensor
+        image_gt_tensor = torch.from_numpy(image_gt_np).unsqueeze(0).float()
 
         if self.training_mode:
             image_gt_np = self._augment(image_gt_np)
@@ -216,7 +240,7 @@ class ControlledDataWrapper(Dataset):
                 image_noise_tensor = self.noise_simulator(image_noise_tensor)
 
         return {
-            DataKey.image_gt: torch.from_numpy(image_gt_np.copy()).unsqueeze(0),
+            DataKey.image_gt: image_gt_tensor,
             DataKey.image_noise: image_noise_tensor.squeeze(0),
             DataKey.name: _name,
         }
