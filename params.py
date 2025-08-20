@@ -1,63 +1,41 @@
 import os
-from dataclasses import dataclass, field, fields, MISSING
-from enum import Enum
-from argparse import ArgumentParser
-import torch
-import typing
 import argparse
-
-# ... (Previous dataclasses: GeneralConfig, DnCNNConfig, UnetConfig) ...
-# I will rewrite the entire file content as it was corrupted.
-
-class NoisyType(str, Enum):
-    GAUSSIAN = "gaussian"
-    RICIAN = "rician"
-    UNIFORM = "uniform"
-    SP = "s&p"
-
-    @classmethod
-    def from_string(cls, s: str) -> "NoisyType":
-        if s == "gaussian":
-            return NoisyType.GAUSSIAN
-        if s == "rician":
-            return NoisyType.RICIAN
-        if s == "uniform":
-            return NoisyType.UNIFORM
-        if s == "s&p":
-            return NoisyType.SP
-        raise ValueError(f"Unknown value {s} for NoisyType")
+import typing
+from dataclasses import dataclass, asdict, field
+from code_denoising.common.utils import logger
 
 @dataclass
 class GeneralConfig:
-    # --- Dataset parameters ---
-    if 'COLAB_GPU' in os.environ:
-        default_root: str = "/content/dataset"
-    else:
-        default_root: str = "dataset"
-    
+    """General configuration"""
+    default_root: str = "/content/dataset"
     DATA_ROOT: str = default_root
     train_dataset: list[str] = field(default_factory=lambda: [os.path.join(GeneralConfig.DATA_ROOT, "train")])
     valid_dataset: list[str] = field(default_factory=lambda: [os.path.join(GeneralConfig.DATA_ROOT, "val")])
     test_dataset: list[str] = field(default_factory=lambda: [os.path.join(GeneralConfig.DATA_ROOT, "val")])
+    
     data_type: str = "*.npy"
-
-    # --- Logging parameters ---
     log_lv: str = "INFO"
     run_dir: str = "logs"
     init_time: float = 0.0
-
-    # --- Training parameters ---
+    
     augmentation_mode: str = "both"
-    training_phase: str = "end_to_end"  # New parameter: 'denoising', 'deconvolution', or 'end_to_end'
+    training_phase: str = "end_to_end"
     noise_levels: list[float] = field(default_factory=lambda: [0.07, 0.132])
-    conv_directions: list[tuple[float, float]] = field(default_factory=lambda: [(-0.809, -0.5878), (-0.809, 0.5878), (0.309, -0.9511), (0.309, 0.9511), (1.0, 0.0)])
+    conv_directions: list[tuple[float, float]] = field(default_factory=lambda: [
+        (-0.809, -0.5878),
+        (-0.809, 0.5878),
+        (0.309, -0.9511),
+        (0.309, 0.9511),
+        (1.0, 0.0),
+    ])
+
     model_type: str = "dncnn"
     optimizer: str = "adam"
     loss_model: str = "l2"
     lr: float = 1e-4
-    # lr_decay_step: int = 10 # NOTE: Not used in ReduceLROnPlateau scheduler
     lr_decay: float = 0.88
     lr_tol: int = 5
+
     gpu: int = 0
     train_batch: int = 2
     valid_batch: int = 8
@@ -66,15 +44,17 @@ class GeneralConfig:
     valid_interval: int = 2
     valid_tol: int = 10
     num_workers: int = 4
+
     save_val: bool = True
-    parallel: bool = True
-    device: torch.device = torch.device("cpu")
+    parallel: bool = False
+    device: str = "cuda:0"
     save_max_idx: int = 500
     noise_type: str = "gaussian"
-    tag: str = ""
+    tag: typing.Optional[str] = None
 
 @dataclass
 class DnCNNConfig:
+    """DnCNN configuration"""
     channels: int = 1
     num_of_layers: int = 17
     kernel_size: int = 3
@@ -83,6 +63,7 @@ class DnCNNConfig:
 
 @dataclass
 class UnetConfig:
+    """U-Net configuration"""
     in_chans: int = 1
     out_chans: int = 1
     chans: int = 32
@@ -92,41 +73,28 @@ config = GeneralConfig()
 dncnnconfig = DnCNNConfig()
 unetconfig = UnetConfig()
 
-def update_config_from_args(config_obj, args_obj):
-    for f in fields(config_obj):
-        if hasattr(args_obj, f.name):
-            setattr(config_obj, f.name, getattr(args_obj, f.name))
-
-def parse_args_for_train_script():
-    parser = ArgumentParser()
-    for cfg_class in [GeneralConfig, DnCNNConfig, UnetConfig]:
-        for f in fields(cfg_class):
-            default_val = f.default
-            if f.default_factory is not MISSING:
-                default_val = f.default_factory()
-
-            if typing.get_origin(f.type) is list:
-                # This correctly handles types like list[float] and list[tuple]
-                parser.add_argument(f"--{f.name}", nargs='+', default=default_val)
-            elif f.type is bool:
-                # Simplified boolean handling
-                parser.add_argument(f"--{f.name}", type=bool, default=default_val)
-            elif f.type is not torch.device:
-                parser.add_argument(f"--{f.name}", type=f.type, default=default_val)
+def parse_args_for_train_script() -> None:
+    """
+    Parses command line arguments and updates the global config objects.
+    """
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--model_type", type=str, choices=["dncnn", "unet"], help="Model type to train.")
+    parser.add_argument("--run_dir", type=str, help="Directory to save logs and models.")
+    parser.add_argument("--tag", type=str, help="A tag for the training run.")
+    parser.add_argument("--data_root", type=str, help="Root directory for the dataset.")
 
     args = parser.parse_args()
 
-    update_config_from_args(config, args)
-    update_config_from_args(dncnnconfig, args)
-    update_config_from_args(unetconfig, args)
+    if args.model_type:
+        config.model_type = args.model_type
+    if args.run_dir:
+        config.run_dir = args.run_dir
+    if args.tag:
+        config.tag = args.tag
+    if args.data_root:
+        config.DATA_ROOT = args.data_root
     
-    config.device = torch.device(f"cuda:{config.gpu}" if torch.cuda.is_available() else "cpu")
-    if not torch.cuda.is_available() or torch.cuda.device_count() <= 1:
-        config.parallel = False
-    
-    config.augmentation_mode = args.augmentation_mode
-    config.training_phase = args.training_phase
-
+    # Automatically generate tag if not provided
     if config.tag is None:
         config.tag = f"{config.model_type}_{config.training_phase}"
 
@@ -140,38 +108,17 @@ def parse_args_for_eval_script() -> None:
     Parses command line arguments for the evaluation script.
     """
     parser = argparse.ArgumentParser()
-    # --- 💡 수정된 부분: data_root 인자 추가 ---
-    parser.add_argument("--data_root", type=str, default=None, help="Path to the dataset root directory (e.g., '/content/drive/MyDrive/.../dataset'). Overrides default config.")
     parser.add_argument("--checkpoint_path", required=True, type=str, help="Path to the trained model checkpoint.")
     parser.add_argument("--result_dir", required=True, type=str, help="Directory to save the restored images.")
-    parser.add_argument("--test_dataset_path", required=True, type=str, help="Path to the test dataset (e.g., 'test_y'). This path is relative to the data_root.")
+    parser.add_argument("--test_dataset_path", required=True, type=str, help="Path to the test dataset (e.g., 'dataset/test_y').")
     
-    # Allow overriding model_type from the command line
     parser.add_argument("--model_type", type=str, default=None, help="Override model type (e.g., 'unet', 'dncnn'). If not provided, it's inferred from the checkpoint.")
     
     args = parser.parse_args()
     
-    # --- 💡 수정된 부분: data_root가 제공되면, config의 경로들을 덮어씀 ---
-    if args.data_root:
-        # logger.info(f"Overriding data root with provided path: {args.data_root}") # logger is not defined in this file
-        config.DATA_ROOT = args.data_root
-        # test_dataset_path를 data_root에 대한 상대 경로로 처리
-        config.test_dataset = [os.path.join(args.data_root, args.test_dataset_path)]
-    else:
-        # 기존 로직: DATA_ROOT가 설정되어 있으면 그 하위 경로를 사용
-        if config.DATA_ROOT:
-            config.test_dataset = [os.path.join(config.DATA_ROOT, args.test_dataset_path)]
-        else:
-            # DATA_ROOT가 없으면, test_dataset_path를 절대 경로로 간주
-            config.test_dataset = [args.test_dataset_path]
-
-
-    # Update the global config object
     config.checkpoint_path = args.checkpoint_path
     config.result_dir = args.result_dir
+    config.test_dataset = [args.test_dataset_path]
     
     if args.model_type:
         config.model_type = args.model_type
-
-if __name__ == "__main__":
-    pass
