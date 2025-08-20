@@ -13,6 +13,7 @@ class GeneralConfig:
     valid_dataset: list[str] = field(default_factory=lambda: [os.path.join(GeneralConfig.DATA_ROOT, "val")])
     test_dataset: list[str] = field(default_factory=lambda: [os.path.join(GeneralConfig.DATA_ROOT, "val")])
     
+    image_size: tuple[int, int] = (256, 256)
     data_type: str = "*.npy"
     log_lv: str = "INFO"
     run_dir: str = "logs"
