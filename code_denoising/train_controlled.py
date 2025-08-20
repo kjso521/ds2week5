@@ -30,7 +30,7 @@ from tqdm import tqdm
 from torch.utils.tensorboard import SummaryWriter
 
 from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loader, LoaderConfig, BaseDataWrapper
-from code_denoising.core_funcs import get_model, get_optimizer, get_loss_model, save_checkpoint, ModelType
+from code_denoising.core_funcs import get_model, get_optimizer, get_loss_model, save_checkpoint, test_part, ModelType
 from code_denoising.common.utils import call_next_id, separator
 from code_denoising.common.logger import logger, logger_add_handler
 from code_denoising.common.wrapper import error_wrap
@@ -44,58 +44,59 @@ class Trainer:
     """Trainer"""
 
     def __init__(self) -> None:
-        """
-        Initialize the trainer.
-        """
+        """__init__"""
         self.config = deepcopy(config)
         
-        # 모델 타입에 따라 모델 설정을 self.config.model_config에 할당 (원래 로직 복원)
         if ModelType.from_string(self.config.model_type) == ModelType.Unet:
             self.config.model_config = deepcopy(unetconfig)
         elif ModelType.from_string(self.config.model_type) == ModelType.DnCNN:
             self.config.model_config = deepcopy(dncnnconfig)
 
-        # Deconvolution 모드일 때만 입력 채널 수를 2로 변경 (효과가 있었던 최소 수정)
         if self.config.augmentation_mode in ['conv_only', 'both']:
             self.config.model_config.in_chans = 2
             logger.info("Setting model input channels to 2 for deconvolution.")
 
-        self.run_dir = Path(self.config.run_dir) / f"{call_next_id(Path(self.config.run_dir)):05d}_{self.config.tag}"
+        self.run_dir = Path(self.config.run_dir) / f"{call_next_id(Path(self.config.run_dir)):05d}_{self.config.tag or 'train'}"
         self.save_dir = self.run_dir / "checkpoints"
-        self.log_file = self.run_dir / "training.log"
-        self.writer = SummaryWriter(log_dir=str(self.run_dir))
-
+        
         self.run_dir.mkdir(parents=True, exist_ok=True)
         self.save_dir.mkdir(parents=True, exist_ok=True)
-        logger_add_handler(logger, self.log_file, self.config.log_lv)
-        self._logging_config(self.config)
+        
+        logger_add_handler(logger, f"{self.run_dir / 'log.log'}", self.config.log_lv)
+        logger.info(separator())
+        logger.info(f"Run dir: {self.run_dir}")
+        logger.info(separator())
+        self._logging_config()
 
-        self.epoch = 0
-        self.model: torch.nn.Module
-        self.optimizer: torch.optim.Optimizer
-        self.scheduler: ReduceLROnPlateau
-        self.loss_model: torch.nn.Module
-        self.best_psnr = 0.0
-        self.best_epoch = 0
-        self.early_stop_tol = self.config.valid_tol
-        self.early_stop_cnt = 0
+        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+        self.config.init_time = time.time()
+        self.config.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        os.environ["CUDA_VISIBLE_DEVICES"] = str(self.config.gpu)
 
-        self.train_loader: DataLoader
-        self.valid_loader: DataLoader
-        self.test_loader: DataLoader
-        self.train_dataset_obj: BaseDataWrapper
-        self.valid_dataset_obj: BaseDataWrapper
-        self.test_dataset_obj: BaseDataWrapper
         self.device = self.config.device
-        self.train_epoch = self.config.train_epoch
+        self.best_metric: float = 0.0
+        self.best_epoch: int = 0
+        self.epoch: int = 0
+        self.primary_metric: float = 0.0
+        self.tol_count: int = 0
+        self.global_step: int = 0
 
-        self._init_essential()
-
-    def _init_essential(self) -> None:
-        """Initialize essential attributes and models."""
+    def run(self) -> None:
+        self._set_data()
         self._set_network()
-        self._set_optimizer()
-        self._set_loss()
+        self._train()
+        self._test("best")
+
+    def _logging_config(self):
+        logger.info("General Config")
+        for k, v in dataclasses.asdict(self.config).items():
+            if k not in ['dncnn_config', 'unet_config', 'model_config']:
+                logger.info(f"{k}:{v}")
+        logger.info(separator())
+        
+        logger.info(f"Model Config ({self.config.model_type})")
+        for k, v in dataclasses.asdict(self.config.model_config).items():
+            logger.info(f"{k}:{v}")
 
     @error_wrap
     def _set_network(self) -> None:
@@ -156,26 +157,13 @@ class Trainer:
         )
         logger.info(f"Test dataset length : {len(self.test_loader.dataset)}")
 
-    def _logging_config(self, config_):
-        logger.info("General Config")
-        # config_는 self.config의 복사본이므로 model_config 속성이 존재함
-        for k, v in dataclasses.asdict(config_).items():
-            if k not in ['dncnn_config', 'unet_config', 'model_config']:
-                logger.info(f"{k}:{v}")
-        logger.info(separator())
-
-        # model_config를 사용하여 모델별 설정 로깅
-        logger.info(f"Model Config ({config_.model_type})")
-        for k, v in dataclasses.asdict(config_.model_config).items():
-            logger.info(f"{k}:{v}")
-
     @error_wrap
     def _train(self) -> None:
         """train entry point"""
         logger.info("####################################################################################################")
         logger.info("Train start")
         
-        for epoch in range(self.train_epoch):
+        for epoch in range(self.config.train_epoch):
             self.epoch = epoch
             logger.info(f"Epoch: {epoch}")
             logger.info(f"Learning rate: {self.optimizer.param_groups[0]['lr']:.3e}")
@@ -215,14 +203,14 @@ class Trainer:
                 valid_psnr = self._valid()
                 self.scheduler.step(valid_psnr)
 
-                if valid_psnr > self.best_psnr:
-                    self.best_psnr = valid_psnr
+                if valid_psnr > self.best_metric:
+                    self.best_metric = valid_psnr
                     self.best_epoch = epoch
-                    self.early_stop_cnt = 0
+                    self.tol_count = 0
                     self._save_checkpoint("checkpoint_best.ckpt")
                 else:
-                    self.early_stop_cnt += 1
-                    if self.early_stop_cnt >= self.early_stop_tol:
+                    self.tol_count += 1
+                    if self.tol_count >= self.config.valid_tol:
                         logger.info(f"Early stop at epoch {epoch}")
                         break
                 self._save_checkpoint(f"checkpoint_epoch_{epoch}.ckpt")
@@ -253,7 +241,7 @@ class Trainer:
         return avg_psnr
 
     @error_wrap
-    def _test(self) -> None:
+    def _test(self, mode: str) -> None:
         """Test"""
         
         if not (self.save_dir / "checkpoint_best.ckpt").exists():

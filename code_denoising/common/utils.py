@@ -2,6 +2,9 @@ import os
 import time
 from datetime import datetime
 from pathlib import Path
+import json
+import numpy as np
+from PIL import Image
 
 from torch import Tensor
 
@@ -48,3 +51,21 @@ def validate_tensor_dimensions(tensors: list[Tensor], expected_dim: int) -> None
 def validate_tensor_channels(tensor: Tensor, expected_channels: int) -> None:
     if tensor.shape[1] != expected_channels:
         raise ValueError(f"Expected tensor with {expected_channels} channels, but got {tensor.shape[1]} channels.")
+
+
+def get_config_from_json(json_file: str) -> dict:
+    """
+    Get the config from a json file
+    """
+    # parse the configurations from the config json file provided
+    with open(json_file, 'r') as config_file:
+        config_dict = json.load(config_file)
+    return config_dict
+
+
+def save_numpy_as_image(array: np.ndarray, file_name: str) -> None:
+    """
+    Save numpy array as image.
+    """
+    img = Image.fromarray(array)
+    img.save(file_name)
