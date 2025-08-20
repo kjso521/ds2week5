@@ -101,9 +101,9 @@ class Trainer:
         )
         self.train_loader, self.train_dataset_obj = get_data_wrapper_loader(
             file_path=config.train_dataset,
-            loader_cfg=dataclasses.asdict(loader_cfg),
             training_mode=True,
-            data_wrapper_class='controlled'
+            data_wrapper_class='controlled',
+            **dataclasses.asdict(loader_cfg)
         )
         logger.info(f"Train dataset length : {len(self.train_dataset_obj)}")
 
@@ -112,9 +112,9 @@ class Trainer:
         
         self.valid_loader, self.valid_dataset_obj = get_data_wrapper_loader(
             file_path=config.valid_dataset,
-            loader_cfg=dataclasses.asdict(valid_loader_cfg),
             training_mode=True, # Augmentation is controlled by mode, not just training_mode
-            data_wrapper_class='controlled'
+            data_wrapper_class='controlled',
+            **dataclasses.asdict(valid_loader_cfg)
         )
         logger.info(f"Valid dataset length : {len(self.valid_dataset_obj)}")
 
@@ -123,9 +123,9 @@ class Trainer:
 
         self.test_loader, _ = get_data_wrapper_loader(
             file_path=config.test_dataset,
-            loader_cfg=dataclasses.asdict(test_loader_cfg),
             training_mode=False,
-            data_wrapper_class='controlled'
+            data_wrapper_class='controlled',
+            **dataclasses.asdict(test_loader_cfg)
         )
         logger.info(f"Test dataset length : {len(self.test_loader.dataset)}")
 

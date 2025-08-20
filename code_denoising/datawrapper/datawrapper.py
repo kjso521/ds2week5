@@ -248,42 +248,40 @@ class ControlledDataWrapper(BaseDataWrapper):
 
 def get_data_wrapper_loader(
     file_path: list[str],
-    loader_cfg: LoaderConfig,
     training_mode: bool,
-    data_wrapper_class: Literal['random', 'controlled'] = 'random',
-) -> tuple[
-    DataLoader,
-    Dataset,
-]:
+    data_wrapper_class: str = "random",
+    **kwargs,
+) -> tuple[DataLoader, Dataset | None] | tuple[None, None]:
+    """
+    Creates a DataLoader instance for a given dataset configuration.
+    """
     wrapper_map = {
         'random': RandomDataWrapper,
         'controlled': ControlledDataWrapper,
     }
     DataWrapperClass = wrapper_map[data_wrapper_class]
     
-    dataset = DataWrapperClass(
-        file_path=file_path,
-        data_type=loader_cfg["data_type"],
-        training_mode=training_mode,
-        augmentation_mode=loader_cfg["augmentation_mode"] if training_mode else 'none',
-        noise_type=NoisyType.from_string(loader_cfg["noise_type"]),
-        noise_levels=loader_cfg["noise_levels"],
-        conv_directions=loader_cfg["conv_directions"],
-    )
-    
-    if not len(dataset):
+    try:
+        dataset = DataWrapperClass(
+            file_path=file_path, training_mode=training_mode, **kwargs
+        )
+
+        if not len(dataset):
+            return (None, None)
+
+        dataloader = DataLoader(
+            dataset,
+            batch_size=kwargs.get("batch", 1),
+            num_workers=kwargs.get("num_workers", 0),
+            pin_memory=True,
+            persistent_workers=kwargs.get("num_workers", 0) > 0,
+            shuffle=kwargs.get("shuffle", False),
+        )
+
+        return (
+            dataloader,
+            dataset,
+        )
+    except Exception as e:
+        logger.error(f"Error creating data loader for {data_wrapper_class}: {e}")
         return (None, None)
-
-    dataloader = DataLoader(
-        dataset,
-        batch_size=loader_cfg["batch"],
-        num_workers=loader_cfg["num_workers"],
-        pin_memory=True,
-        persistent_workers=loader_cfg["num_workers"] > 0,
-        shuffle=loader_cfg["shuffle"],
-    )
-
-    return (
-        dataloader,
-        dataset,
-    )
