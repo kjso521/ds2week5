@@ -51,32 +51,27 @@ class ModelType(str, Enum):
             raise ValueError(f"Invalid ModelType value: {value}. Must be one of {list(cls)} : {err}") from err
 
 
-def get_model(
-    config: "GeneralConfig",
-) -> NETWORK:
-    device = config.device
+def get_model(config: "GeneralConfig") -> NETWORK:
+    """
+    Returns the model specified in the config.
+    """
     model_type = config.model_type
-
-    if device is None:
-        raise TypeError("device is not to be None")
-
-    # --- 💡 수정된 부분: 증강 모드에 따라 입력 채널 수를 동적으로 결정 ---
     in_channels = 2 if config.augmentation_mode in ['conv_only', 'both'] else 1
     logger.info(f"Setting model input channels to {in_channels} based on augmentation mode '{config.augmentation_mode}'.")
 
     if ModelType.from_string(model_type) == ModelType.DnCNN:
-        # Load DnCNN specific config
+        model_cfg = config.dncnn_config
         assert isinstance(model_cfg, DnCNNConfig)
         return DnCNN(
-            channels=in_channels,  # 💡 수정: 동적으로 계산된 in_channels 사용
+            channels=in_channels,
             num_of_layers=model_cfg.num_of_layers,
         )
 
     elif ModelType.from_string(model_type) == ModelType.Unet:
-        # Load U-Net specific config
+        model_cfg = config.unet_config
         assert isinstance(model_cfg, UnetConfig)
         return Unet(
-            in_chans=in_channels,  # 💡 수정: 동적으로 계산된 in_channels 사용
+            in_chans=in_channels,
             out_chans=model_cfg.out_chans,
             chans=model_cfg.chans,
             num_pool_layers=model_cfg.num_pool_layers,
