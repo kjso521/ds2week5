@@ -32,7 +32,7 @@ from torch.utils.tensorboard import SummaryWriter
 from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loader, LoaderConfig, BaseDataWrapper
 from code_denoising.core_funcs import get_model, get_optimizer, get_loss_model, save_checkpoint, test_part
 from code_denoising.common.utils import call_next_id, separator
-from code_denoising.common.logger import logger, logger_add_handler, init_logger
+from code_denoising.common.logger import logger, logger_add_handler
 from code_denoising.common.wrapper import error_wrap
 from params import config, dncnnconfig, unetconfig, parse_args_for_train_script
 from code_denoising.core_funcs.model_type import ModelType
