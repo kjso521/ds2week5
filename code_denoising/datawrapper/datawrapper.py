@@ -269,17 +269,20 @@ def get_data_wrapper_loader(
         if not len(dataset):
             return (None, None)
 
-        dataloader = DataLoader(
+        # Ensure num_workers is an integer before comparison
+        num_workers = kwargs.get("num_workers", 0)
+
+        loader = DataLoader(
             dataset,
             batch_size=kwargs.get("batch", 1),
-            num_workers=kwargs.get("num_workers", 0),
-            pin_memory=True,
-            persistent_workers=kwargs.get("num_workers", 0) > 0,
             shuffle=kwargs.get("shuffle", False),
+            num_workers=num_workers,
+            pin_memory=True,
+            persistent_workers=num_workers > 0,
         )
 
         return (
-            dataloader,
+            loader,
             dataset,
         )
     except Exception as e:
