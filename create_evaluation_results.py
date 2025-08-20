@@ -62,11 +62,15 @@ def main():
             logger.warning(f"Model type not found in checkpoint. Falling back to default: {config.model_type}")
 
     logger.info(f"Using model type: {config.model_type}")
+    
+    # 💡 수정: Trainer.__init__ 로직과 동일하게 model_config를 동적으로 추가
+    if ModelType.from_string(config.model_type) == ModelType.Unet:
+        config.model_config = config.unet_config
+    elif ModelType.from_string(config.model_type) == ModelType.DnCNN:
+        config.model_config = config.dncnn_config
+
     model = get_model(config).to(device)
-    state_dict = checkpoint.get('model_state_dict')
-    if not state_dict:
-        raise ValueError("Could not find a valid 'model_state_dict' in the checkpoint.")
-    model.load_state_dict(state_dict)
+    model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
     # 4. Setup data loader for the test dataset
