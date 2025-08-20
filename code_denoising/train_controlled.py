@@ -158,20 +158,16 @@ class Trainer:
 
     def _logging_config(self, config_):
         logger.info("General Config")
-        # Since config is a dataclass, we use asdict here which is correct
+        # config_는 self.config의 복사본이므로 model_config 속성이 존재함
         for k, v in dataclasses.asdict(config_).items():
-            if k not in ['dncnn_config', 'unet_config']:
+            if k not in ['dncnn_config', 'unet_config', 'model_config']:
                 logger.info(f"{k}:{v}")
         logger.info(separator())
 
-        if config_.model_type == "dncnn":
-            logger.info("Model Config (DnCNN)")
-            for k, v in dataclasses.asdict(config_.dncnn_config).items():
-                logger.info(f"{k}:{v}")
-        elif config_.model_type == "unet":
-            logger.info("Model Config (U-Net)")
-            for k, v in dataclasses.asdict(config_.unet_config).items():
-                logger.info(f"{k}:{v}")
+        # model_config를 사용하여 모델별 설정 로깅
+        logger.info(f"Model Config ({config_.model_type})")
+        for k, v in dataclasses.asdict(config_.model_config).items():
+            logger.info(f"{k}:{v}")
 
     @error_wrap
     def _train(self) -> None:
