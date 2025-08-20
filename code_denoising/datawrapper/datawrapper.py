@@ -230,35 +230,43 @@ class ControlledDataWrapper(BaseDataWrapper):
         # In training mode, we load a clean GT and create a noisy version
         if self.training_mode:
             image_gt_np = self._augment(image_np)
-
-            # Convert NumPy array to a 4D Torch Tensor for simulators
-            image_gt_tensor = torch.from_numpy(image_gt_np.copy()).unsqueeze(0).unsqueeze(0)
-            image_noise_tensor = image_gt_tensor.clone()
+            image_gt_tensor = torch.from_numpy(image_gt_np.copy()).unsqueeze(0).float() # Shape: [1, H, W]
             
+            # --- 💡 수정된 부분: 시뮬레이터 입력 형태를 [1, 1, H, W]로 통일 ---
+            # 모든 시뮬레이터는 [Batch, Channel, H, W] 형태의 4D 텐서를 기대함
+            image_noise_tensor_4d = image_gt_tensor.unsqueeze(0) # Shape: [1, 1, H, W]
+
             # Apply on-the-fly degradation
-            if self.augmentation_mode == 'noise_only':
-                if len(self.noise_levels) > 0:
-                    noise_level = self.noise_levels[(self.current_epoch + index) % len(self.noise_levels)]
-                    self.noise_simulator.noise_sigma = noise_level
-                    image_noise_tensor = self.noise_simulator(image_noise_tensor)
-            elif self.augmentation_mode == 'conv_only':
-                if len(self.conv_directions) > 0:
-                    conv_direction = self.conv_directions[(self.current_epoch + index) % len(self.conv_directions)]
-                    image_noise_tensor = self.forward_simulator(image_noise_tensor, conv_direction)
+            if self.augmentation_mode == 'conv_only':
+                conv_direction = self.conv_directions[(self.current_epoch + index) % len(self.conv_directions)]
+                # forward_simulator는 [2, H, W]를 반환
+                image_noise_tensor = self.forward_simulator(image_noise_tensor_4d, conv_direction)
+            
+            elif self.augmentation_mode == 'noise_only':
+                noise_level = self.noise_levels[(self.current_epoch + index) % len(self.noise_levels)]
+                self.noise_simulator.noise_sigma = noise_level
+                # noise_simulator는 [1, 1, H, W]를 반환하므로, 채널 차원을 보존하기 위해 squeeze(0)만 적용
+                image_noise_tensor = self.noise_simulator(image_noise_tensor_4d).squeeze(0)
+
             elif self.augmentation_mode == 'both':
-                if self.total_combinations > 0:
-                    combination_idx = (self.current_epoch + index) % self.total_combinations
-                    noise_level, conv_direction = self.noise_conv_combinations[combination_idx]
-                    
-                    image_noise_tensor = self.forward_simulator(image_noise_tensor, conv_direction)
-                    self.noise_simulator.noise_sigma = noise_level
-                    image_noise_tensor = self.noise_simulator(image_noise_tensor)
+                combination_idx = (self.current_epoch + index) % self.total_combinations
+                noise_level, conv_direction = self.noise_conv_combinations[combination_idx]
+                
+                # forward_simulator가 먼저 [2, H, W]를 만들고, 이를 다시 4D로 변환하여 noise_simulator에 전달
+                conv_output_3d = self.forward_simulator(image_noise_tensor_4d, conv_direction)
+                conv_output_4d = conv_output_3d.unsqueeze(0) # Shape: [1, 2, H, W]
+
+                self.noise_simulator.noise_sigma = noise_level
+                # noise_simulator는 [1, 2, H, W]를 반환하므로, squeeze(0)만 적용
+                image_noise_tensor = self.noise_simulator(conv_output_4d).squeeze(0)
+
+            else: # 'none' mode
+                image_noise_tensor = image_gt_tensor
+
 
             return {
-                # Return the original clean image as GT
-                DataKey.image_gt: torch.from_numpy(image_np).unsqueeze(0).float(),
-                # --- 💡 수정된 부분: squeeze를 한 번만 사용하여 채널 차원 보존 ---
-                DataKey.image_noise: image_noise_tensor.squeeze(0),
+                DataKey.image_gt: image_gt_tensor,
+                DataKey.image_noise: image_noise_tensor, # 최종 형태는 [C, H, W]
                 DataKey.name: _name,
             }
         # In evaluation mode, the loaded image is already the noisy input
