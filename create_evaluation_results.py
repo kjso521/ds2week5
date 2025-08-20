@@ -5,63 +5,26 @@
 `evaluate.ipynb`가 요구하는 형식에 맞춰 지정된 폴더에 .npy 파일로 저장합니다.
 """
 
+import sys
+from pathlib import Path
+import warnings
 import argparse
 import os
-from pathlib import Path
-import sys
-import warnings
 
-# --- 중요: 모든 import 이전에 프로젝트 루트 경로를 시스템 경로에 추가 ---
-# 이 스크립트가 실행되는 위치를 기준으로, 상위 1단계 폴더(week5)를 경로에 추가합니다.
-sys.path.append(str(Path(__file__).resolve().parents[1]))
-
+import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-import numpy as np
 
-# 프로젝트 루트를 기준으로 필요한 모듈 import
-from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loader, LoaderConfig
+# --- 중요: 모든 import 이전에 프로젝트 루트 경로를 시스템 경로에 추가 ---
+sys.path.append(str(Path(__file__).resolve().parents[1]))
+
+from code_denoising.datawrapper.datawrapper import DataKey, get_data_wrapper_loader
 from code_denoising.core_funcs import get_model
-from params import config, parse_args_for_eval_script  # Import the new parsing function
+from params import config, parse_args_for_eval_script
 from code_denoising.common.logger import logger
 
 warnings.filterwarnings("ignore")
-
-def create_results(
-    network: torch.nn.Module,
-    data_loader: DataLoader,
-    result_dir: str,
-):
-    """
-    Generate and save model outputs.
-    """
-    result_path = Path(result_dir)
-    result_path.mkdir(parents=True, exist_ok=True)
-    
-    logger.info(f"Saving results to {result_path}")
-
-    total_psnr = 0.0
-    total_ssim = 0.0
-    count = 0
-
-    with torch.no_grad():
-        for data in tqdm(data_loader, leave=False):
-            image_noise = data[DataKey.image_noise].to(config.device)
-            filenames = data[DataKey.name]
-
-            image_pred = network(image_noise)
-
-            for i in range(image_pred.shape[0]):
-                pred_np = image_pred[i, 0, :, :].cpu().numpy()
-                filename = filenames[i]
-                
-                # Ensure the saved file has the original extension stripped
-                base_filename = Path(filename).stem
-                
-                np.save(result_path / f"{base_filename}.npy", pred_np)
-    
-    logger.info("Finished creating result files.")
 
 
 def main():
@@ -82,8 +45,8 @@ def main():
     checkpoint = torch.load(checkpoint_path, map_location=device)
     
     # --- 💡 수정된 모델 타입 결정 로직 ---
-    # 사용자가 --model_type 인자를 직접 줬는지 확인
-    user_overrode_model_type = '--model_type' in sys.argv
+    # sys.argv를 직접 확인하여 사용자가 명령줄에서 명시했는지 체크
+    user_overrode_model_type = any(arg.startswith('--model_type') for arg in sys.argv)
 
     if user_overrode_model_type:
         # 사용자가 직접 지정했다면, parse_args_for_eval_script가 이미 config에 설정했으므로 그대로 사용
@@ -95,7 +58,7 @@ def main():
         if model_type_from_ckpt:
             config.model_type = model_type_from_ckpt
         else:
-            # 체크포인트에도 정보가 없으면, 마지막 수단으로 기본값을 사용
+            # 체크포인트에도 정보가 없으면, 마지막 수단으로 기본값을 사용 (이 경우 config의 기본값)
             logger.warning(f"Model type not found in checkpoint. Falling back to default: {config.model_type}")
 
     logger.info(f"Using model type: {config.model_type}")
@@ -107,22 +70,22 @@ def main():
     model.eval()
 
     # 4. Setup data loader for the test dataset
-    loader_cfg = LoaderConfig(
-        data_type='*.npy',
-        batch=1,  # Process one image at a time
-        num_workers=0,
-        shuffle=False,
-        augmentation_mode='none', # No augmentation during evaluation
-        training_phase='end_to_end', # This doesn't matter for eval but needs a value
-        noise_type="gaussian",
-        noise_levels=[],
-        conv_directions=[]
-    )
+    loader_cfg = {
+        "data_type": '*.npy',
+        "batch": 1,  # Process one image at a time
+        "num_workers": 0,
+        "shuffle": False,
+        "augmentation_mode": 'none', # No augmentation during evaluation
+        "training_phase": 'end_to_end', # This doesn't matter for eval but needs a value
+        "noise_type": "gaussian",
+        "noise_levels": [],
+        "conv_directions": []
+    }
     test_loader, _ = get_data_wrapper_loader(
         file_path=config.test_dataset,
-        loader_cfg=loader_cfg,
         training_mode=False,
-        data_wrapper_class='controlled' # Use the flexible datawrapper
+        data_wrapper_class='controlled',
+        **loader_cfg
     )
 
     # 5. Run inference and save results
@@ -130,7 +93,8 @@ def main():
     with torch.no_grad():
         for data in tqdm(test_loader):
             input_tensor = data[DataKey.image_noise].to(device)
-            filename = data[DataKey.filename]
+            # 파일명을 리스트로 감싸서 오는 경우가 있을 수 있으므로 첫 번째 요소를 사용
+            filename = data[DataKey.name][0] if isinstance(data[DataKey.name], list) else data[DataKey.name]
 
             output_tensor = model(input_tensor)
 
