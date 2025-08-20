@@ -97,7 +97,7 @@ class Trainer:
             training_phase=config.training_phase, # Pass parameter
             noise_type=config.noise_type,
             noise_levels=config.noise_levels,
-            conv_directions=config.conv_directions
+            conv_directions=config.conv_directions,
         )
         self.train_loader, self.train_dataset_obj = get_data_wrapper_loader(
             file_path=config.train_dataset,
