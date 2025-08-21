@@ -55,9 +55,13 @@ class Trainer:
             self.config.model_config = deepcopy(dncnnconfig)
 
         if self.config.augmentation_mode in ['conv_only', 'both']:
-            self.config.model_config.in_chans = 2
-            self.config.model_config.out_chans = 2 # Deconvolution requires 2-channel output (real/imaginary)
-            logger.info("Setting model input and output channels to 2 for deconvolution.")
+            # 💡 수정: DnCNN과 Unet을 구분하여 채널 수를 올바르게 설정
+            if ModelType.from_string(self.config.model_type) == ModelType.Unet:
+                self.config.model_config.in_chans = 2
+                self.config.model_config.out_chans = 2
+            elif ModelType.from_string(self.config.model_type) == ModelType.DnCNN:
+                self.config.model_config.channels = 2
+            logger.info("Setting model input/output channels to 2 for deconvolution.")
 
         self.run_dir = Path(self.config.run_dir) / f"{call_next_id(Path(self.config.run_dir)):05d}_{self.config.tag or 'train'}"
         self.save_dir = self.run_dir / "checkpoints"
