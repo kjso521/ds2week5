@@ -143,6 +143,11 @@ def main():
 
             output_tensor = model(input_tensor)
 
+            # 💡 --- 출력 채널 동적 맞춤 로직 ---
+            # 모델 출력이 2채널(complex)인 경우, 평가를 위해 1채널 크기(magnitude)로 변환
+            if output_tensor.shape[1] == 2:
+                output_tensor = torch.sqrt(output_tensor[:, 0, :, :]**2 + output_tensor[:, 1, :, :]**2).unsqueeze(1)
+
             output_np = output_tensor.squeeze().cpu().numpy()
             save_path = result_dir / f"{Path(filename).stem}.npy"
             np.save(save_path, output_np)

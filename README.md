@@ -50,6 +50,9 @@
 | **6. 하이브리드 A** | `DnCNN` (✅ 학습 필요) | `Least Squares` | **계획 확정** |
 | **7. 하이브리드 B** | `Diffusion Denoiser` | `U-Net` (✅ 학습 필요) | **계획 확정** |
 
+### Git Sync Status
+- Last verified sync: 2025-08-21 (All critical evaluation fixes are confirmed to be pushed.)
+
 ### 4.3. 실행 전략: 통합 평가 프레임워크 구축
 
 다양한 조합을 체계적으로 실행하고 평가하기 위해, **`run_master_evaluation.ipynb`** 라는 새로운 **통합 평가 노트북**을 구축합니다.
