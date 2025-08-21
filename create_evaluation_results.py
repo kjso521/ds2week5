@@ -132,6 +132,15 @@ def main():
             # 파일명을 리스트로 감싸서 오는 경우가 있을 수 있으므로 첫 번째 요소를 사용
             filename = data[DataKey.name][0] if isinstance(data[DataKey.name], list) else data[DataKey.name]
 
+            # 💡 --- 입력 채널 동적 맞춤 로직 ---
+            # 모델이 기대하는 입력 채널 수를 확인 (Unet: in_chans, DnCNN: channels)
+            model_in_channels = getattr(config.model_config, 'channels', getattr(config.model_config, 'in_chans', 1))
+
+            # 모델은 2채널을 원하는데 입력이 1채널인 경우, 0으로 채워진 두 번째 채널을 추가
+            if model_in_channels > 1 and input_tensor.shape[1] == 1:
+                zeros = torch.zeros_like(input_tensor)
+                input_tensor = torch.cat((input_tensor, zeros), dim=1)
+
             output_tensor = model(input_tensor)
 
             output_np = output_tensor.squeeze().cpu().numpy()
