@@ -115,7 +115,10 @@ class Trainer:
 
     @error_wrap
     def _set_network(self) -> None:
-        self.model = get_model(self.config).to(self.config.device)
+        self.model = get_model(
+            model_cfg=self.config.model_config, 
+            model_type=self.config.model_type
+        ).to(self.config.device)
         if self.config.parallel:
             self.model = DataParallel(self.model)
 

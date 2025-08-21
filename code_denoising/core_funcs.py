@@ -49,36 +49,33 @@ class ModelType(str, Enum):
         except ValueError as err:
             raise ValueError(f"Invalid ModelType value: {value}. Must be one of {list(cls)} : {err}") from err
 
+    def __str__(self):
+        return self.value
 
-def get_model(config: "GeneralConfig") -> NETWORK:
+def get_model(model_cfg: object, model_type: str) -> NETWORK:
     """
-    Returns the model specified in the config.
+    Dynamically creates a model based on the provided configuration.
+    💡 수정: config 객체를 직접 받도록 변경
     """
-    model_type = config.model_type
-    model_cfg = config.model_config  # 💡 수정: config 객체에서 직접 model_config를 사용
-
-    # 💡 수정: in_channels 값을 여기서 직접 사용
-    if ModelType.from_string(model_type) == ModelType.DnCNN:
+    if ModelType.from_string(model_type) == ModelType.Unet:
+        assert isinstance(model_cfg, UnetConfig)
+        return Unet(
+            in_chans=model_cfg.in_chans,
+            out_chans=model_cfg.out_chans,
+            chans=model_cfg.chans,
+            num_pool_layers=model_cfg.num_pool_layers
+        )
+    elif ModelType.from_string(model_type) == ModelType.DnCNN:
         assert isinstance(model_cfg, DnCNNConfig)
         return DnCNN(
             channels=model_cfg.channels,
             num_of_layers=model_cfg.num_of_layers,
             kernel_size=model_cfg.kernel_size,
             padding=model_cfg.padding,
-            features=model_cfg.features,
+            features=model_cfg.features
         )
-
-    elif ModelType.from_string(model_type) == ModelType.Unet:
-        assert isinstance(model_cfg, UnetConfig)
-        return Unet(
-            in_chans=model_cfg.in_chans,
-            out_chans=model_cfg.out_chans,
-            chans=model_cfg.chans,
-            num_pool_layers=model_cfg.num_pool_layers,
-        )
-
     else:
-        raise ValueError(f"Unknown model type: {model_type}")
+        raise ValueError(f"Unsupported model type: {model_type}")
 
 
 def get_optimizer(
