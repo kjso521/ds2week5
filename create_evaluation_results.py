@@ -67,19 +67,32 @@ def main():
 
     logger.info(f"Using model type: {config.model_type}")
     
-    # 원상 복구: Trainer.__init__ 로직과 동일하게 model_config를 동적으로 추가
-    if ModelType.from_string(config.model_type) == ModelType.Unet:
-        config.model_config = unetconfig
-    elif ModelType.from_string(config.model_type) == ModelType.DnCNN:
-        config.model_config = dncnnconfig
+    # 💡 --- 모델 설정 복원 로직 --- 💡
+    # 1. 체크포인트에서 model_config를 직접 가져오기 (신규 체크포인트 방식)
+    model_config_from_ckpt = checkpoint.get('model_config')
+    
+    if model_config_from_ckpt:
+        logger.info("Found model_config in checkpoint. Using it to build the model.")
+        config.model_config = model_config_from_ckpt
+    else:
+        # 2. model_config가 없는 경우, 기존 방식으로 설정 (하위 호환성)
+        logger.warning("model_config not found in checkpoint. Falling back to default config from params.py.")
+        if ModelType.from_string(config.model_type) == ModelType.Unet:
+            config.model_config = unetconfig
+        elif ModelType.from_string(config.model_type) == ModelType.DnCNN:
+            config.model_config = dncnnconfig
 
-    # Deconvolution 모드일 때만 입력 채널 수를 2로 변경 (효과가 있었던 최소 수정)
-    if config.augmentation_mode in ['conv_only', 'both']:
-        config.model_config.in_chans = 2
-        logger.info("Setting model input channels to 2 for deconvolution.")
-
+    # 모델 생성
     model = get_model(config.model_config, config.model_type).to(device)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    
+    # 모델 가중치 불러오기 (Size Mismatch 오류 방지)
+    try:
+        model.load_state_dict(checkpoint['model_state_dict'])
+    except RuntimeError as e:
+        logger.error(f"Failed to load state_dict, likely due to a model architecture mismatch: {e}")
+        logger.error("Please ensure the checkpoint was trained with a compatible architecture.")
+        sys.exit(1) # 오류 발생 시 스크립트 중단
+        
     model.eval()
 
     # 4. Setup data loader for the test dataset

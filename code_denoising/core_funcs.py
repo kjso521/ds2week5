@@ -128,7 +128,7 @@ def set_optimizer_lr(
 
 
 def save_checkpoint(
-    network: NETWORK, save_dir: Path, filename: str, epoch: int | None = None, model_type: str | None = None
+    network: NETWORK, save_dir: Path, filename: str, epoch: int | None = None, model_type: str | None = None, model_config: object | None = None
 ) -> None:
     """
     Saves a checkpoint of the model.
@@ -145,6 +145,7 @@ def save_checkpoint(
         "model_state_dict": state_dict,
         "epoch": epoch,
         "model_type": model_type,
+        "model_config": model_config, # 💡 모델 설정 추가
     }
 
     torch.save(checkpoint_data, save_path)

@@ -278,7 +278,8 @@ class Trainer:
             save_dir=self.save_dir,
             filename=filename,
             epoch=self.epoch,
-            model_type=self.config.model_type
+            model_type=self.config.model_type,
+            model_config=self.config.model_config # 💡 현재 모델 설정 함께 저장
         )
 
     def _save_image(self, tensor: torch.Tensor, filename: str, directory: Path):
