@@ -47,6 +47,8 @@ class GeneralConfig:
     save_max_idx: int = 500 
     noise_type: str = "gaussian" 
     tag: typing.Optional[str] = None 
+    # 💡 평가 시 수동 채널 설정을 위한 변수
+    model_channels_override: typing.Optional[int] = None
  
 @dataclass 
 class DnCNNConfig: 
@@ -106,9 +108,14 @@ def parse_args_for_eval_script() -> None:
     parser.add_argument("--result_dir", required=True, type=str, help="Directory to save the restored images.") 
     parser.add_argument("--test_dataset_path", required=True, type=str, help="Path to the test dataset ^(e.g., 'dataset/test_y'^).") 
     parser.add_argument("--model_type", type=str, default=None, help="Override model type ^(e.g., 'unet', 'dncnn'^). If not provided, it's inferred from the checkpoint.") 
+    # 💡 --- 수동 채널 설정 인자 추가 ---
+    parser.add_argument("--model_channels", type=int, choices=[1, 2], default=None, help="Manually override the number of model channels (1 or 2). Use 2 for 'randomized' checkpoints.")
     args = parser.parse_args() 
     config.checkpoint_path = args.checkpoint_path 
     config.result_dir = args.result_dir 
     config.test_dataset = [args.test_dataset_path] 
     if args.model_type: 
         config.model_type = args.model_type
+    # 💡 --- 새로운 인자를 config에 반영 ---
+    if args.model_channels:
+        config.model_channels_override = args.model_channels

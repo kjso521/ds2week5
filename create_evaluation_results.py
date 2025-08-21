@@ -82,6 +82,16 @@ def main():
         elif ModelType.from_string(config.model_type) == ModelType.DnCNN:
             config.model_config = dncnnconfig
 
+    # 💡 --- 수동 채널 설정 로직 --- 💡
+    # 사용자가 --model_channels 인자를 사용했다면, 모든 설정을 무시하고 채널 수를 강제로 덮어쓴다.
+    if config.model_channels_override is not None:
+        logger.warning(f"User is manually overriding model channels to: {config.model_channels_override}")
+        if ModelType.from_string(config.model_type) == ModelType.Unet:
+            config.model_config.in_chans = config.model_channels_override
+            config.model_config.out_chans = config.model_channels_override
+        elif ModelType.from_string(config.model_type) == ModelType.DnCNN:
+            config.model_config.channels = config.model_channels_override
+
     # 모델 생성
     model = get_model(config.model_config, config.model_type).to(device)
     
