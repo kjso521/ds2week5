@@ -16,6 +16,7 @@ class GeneralConfig:
     log_lv: str = "INFO" 
     run_dir: str = "logs" 
     init_time: float = 0.0 
+    data_wrapper_class: str = "controlled" # 💡 추가: 사용할 데이터 로더 클래스
     augmentation_mode: str = "both" 
     training_phase: str = "end_to_end" 
     noise_levels: list[float] = field(default_factory=lambda: [0.07, 0.132]) 
@@ -74,6 +75,8 @@ def parse_args_for_train_script() -> None:
     parser.add_argument("--data_root", type=str, help="Root directory for the dataset.") 
     parser.add_argument("--augmentation_mode", type=str, choices=["noise_only", "conv_only", "both", "none"], help="Type of data augmentation to apply.") 
     parser.add_argument("--training_phase", type=str, help="Phase of the training, e.g., 'denoising', 'deconvolution'.") 
+    # --- 💡 추가: 데이터 로더 클래스를 선택하는 인자 ---
+    parser.add_argument("--data_wrapper_class", type=str, choices=["controlled", "randomized"], help="Data wrapper class to use for training.")
     args = parser.parse_args() 
     if args.model_type: 
         config.model_type = args.model_type 
@@ -87,6 +90,9 @@ def parse_args_for_train_script() -> None:
         config.augmentation_mode = args.augmentation_mode 
     if args.training_phase: 
         config.training_phase = args.training_phase 
+    # --- 💡 추가: 새로운 인자를 config에 반영 ---
+    if args.data_wrapper_class:
+        config.data_wrapper_class = args.data_wrapper_class
     if config.tag is None: 
         config.tag = f"{config.model_type}_{config.training_phase}" 
     if config.DATA_ROOT: 

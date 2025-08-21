@@ -289,6 +289,66 @@ class ControlledDataWrapper(BaseDataWrapper):
                 DataKey.name: _name,
             }
 
+# --- 💡 New Class for Randomized Augmentation ---
+class RandomizedDataWrapper(ControlledDataWrapper):
+    """
+    Inherits from ControlledDataWrapper but applies augmentations randomly 
+    for each __getitem__ call instead of cycling through them.
+    The dataset length is the actual number of files, not multiplied by augmentations.
+    """
+    def __len__(self):
+        # The virtual length is just the number of files.
+        return len(self.file_list)
+
+    def __getitem__(self, index: int) -> dict[DataKey, Tensor | str]:
+        # The index directly corresponds to the file index.
+        file_idx = index
+
+        image_np = self._load_from_npy(self.file_list[file_idx])
+        _name = Path(self.file_list[file_idx]).name
+
+        if self.training_mode:
+            image_gt_np = self._augment(image_np)
+            image_gt_tensor = torch.from_numpy(image_gt_np.copy()).unsqueeze(0).float()
+
+            if self.augmentation_mode in ['conv_only', 'both']:
+                zeros = torch.zeros_like(image_gt_tensor)
+                image_gt_tensor = torch.cat([image_gt_tensor, zeros], dim=0)
+
+            image_noise_tensor_4d = image_gt_tensor[0:1, ...].unsqueeze(0)
+
+            # --- RANDOMIZED AUGMENTATION LOGIC ---
+            if self.augmentation_mode == 'conv_only':
+                conv_direction = random.choice(self.conv_directions)
+                image_noise_tensor = self.forward_simulator(image_noise_tensor_4d, conv_direction).squeeze(0)
+            
+            elif self.augmentation_mode == 'noise_only':
+                noise_level = random.choice(self.noise_levels)
+                self.noise_simulator.noise_sigma = noise_level
+                image_noise_tensor = self.noise_simulator(image_noise_tensor_4d).squeeze(0)
+
+            elif self.augmentation_mode == 'both':
+                noise_level = random.choice(self.noise_levels)
+                conv_direction = random.choice(self.conv_directions)
+                
+                conv_output_3d = self.forward_simulator(image_noise_tensor_4d, conv_direction)
+                conv_output_4d = conv_output_3d.unsqueeze(0) 
+                
+                self.noise_simulator.noise_sigma = noise_level
+                image_noise_tensor = self.noise_simulator(conv_output_4d).squeeze(0)
+
+            else: # 'none' mode
+                image_noise_tensor = image_gt_tensor
+
+            return {
+                DataKey.image_gt: image_gt_tensor,
+                DataKey.image_noise: image_noise_tensor,
+                DataKey.name: _name,
+            }
+        else:
+            # Evaluation mode remains the same.
+            return super().__getitem__(index)
+
 
 def get_data_wrapper_loader(
     file_path: list[str],
@@ -302,6 +362,7 @@ def get_data_wrapper_loader(
     wrapper_map = {
         'random': RandomDataWrapper,
         'controlled': ControlledDataWrapper,
+        'randomized': RandomizedDataWrapper, # Add the new wrapper
     }
     DataWrapperClass = wrapper_map[data_wrapper_class]
     

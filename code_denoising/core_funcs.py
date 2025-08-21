@@ -14,7 +14,6 @@ from enum import Enum
 from pathlib import Path
 
 import torch
-from scipy.io import savemat
 from torch import Tensor
 from torch.optim import Adam, AdamW
 from torch.utils.data import DataLoader

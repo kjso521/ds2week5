@@ -140,7 +140,7 @@ class Trainer:
         self.train_loader, self.train_dataset_obj = get_data_wrapper_loader(
             file_path=self.config.train_dataset,
             training_mode=True,
-            data_wrapper_class='controlled',
+            data_wrapper_class=self.config.data_wrapper_class, # 💡 수정: 하드코딩된 값 대신 config 사용
             **loader_cfg
         )
         logger.info(f"Train dataset length : {len(self.train_dataset_obj)}")
@@ -152,7 +152,7 @@ class Trainer:
         self.valid_loader, self.valid_dataset_obj = get_data_wrapper_loader(
             file_path=self.config.valid_dataset,
             training_mode=True, # Augmentation is controlled by mode, not just training_mode
-            data_wrapper_class='controlled',
+            data_wrapper_class=self.config.data_wrapper_class, # 💡 수정: 하드코딩된 값 대신 config 사용
             **valid_loader_cfg
         )
         logger.info(f"Valid dataset length : {len(self.valid_dataset_obj)}")
@@ -165,7 +165,7 @@ class Trainer:
         self.test_loader, self.test_dataset_obj = get_data_wrapper_loader(
             file_path=self.config.test_dataset,
             training_mode=False,
-            data_wrapper_class='controlled',
+            data_wrapper_class=self.config.data_wrapper_class, # 💡 수정: 하드코딩된 값 대신 config 사용
             **test_loader_cfg
         )
         logger.info(f"Test dataset length : {len(self.test_loader.dataset)}")
