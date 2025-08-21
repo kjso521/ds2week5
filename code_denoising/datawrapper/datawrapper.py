@@ -331,8 +331,8 @@ class RandomizedDataWrapper(ControlledDataWrapper):
                 noise_level = random.choice(self.noise_levels)
                 conv_direction = random.choice(self.conv_directions)
                 
-                conv_output_3d = self.forward_simulator(image_noise_tensor_4d, conv_direction)
-                conv_output_4d = conv_output_3d.unsqueeze(0) 
+                # 💡 수정: 불필요한 unsqueeze(0)를 제거하여 5D 텐서가 생성되는 것을 방지
+                conv_output_4d = self.forward_simulator(image_noise_tensor_4d, conv_direction)
                 
                 self.noise_simulator.noise_sigma = noise_level
                 image_noise_tensor = self.noise_simulator(conv_output_4d).squeeze(0)
