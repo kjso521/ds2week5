@@ -78,7 +78,7 @@ def main():
         config.model_config.in_chans = 2
         logger.info("Setting model input channels to 2 for deconvolution.")
 
-    model = get_model(config).to(device)
+    model = get_model(config, config.model_type).to(device)
     model.load_state_dict(checkpoint['model_state_dict'])
     model.eval()
 
